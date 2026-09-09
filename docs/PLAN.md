@@ -2,51 +2,32 @@
 
 Lokale Rollenspiel-Engine mit eigenem System-Prompt, Charakterkarten, Beziehungs-
 und Gedächtnismechanik. Läuft als ein Docker-Container auf einer Synology NAS,
-bedienbar von jedem Gerät im Haushalt (Browser/PWA).
+bedienbar von jedem Gerät (Browser/PWA).
 
-> Status: Entwurf. Offene Entscheidungen siehe [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md).
-> Punkte, die dort noch offen sind, sind hier mit **[Q<n>]** markiert.
+Getroffene Entscheidungen: [ENTSCHEIDUNGEN.md](ENTSCHEIDUNGEN.md) ·
+Noch offen: [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) ·
+Prompt-Startvorlage: [system-prompt-vorlage.md](system-prompt-vorlage.md)
 
 ---
 
 ## 1. Leitprinzipien
 
-Diese fünf Sätze entscheiden später jeden Zweifelsfall:
-
-1. **Der System-Prompt gehört dir.** Die Engine injiziert niemals versteckten Text.
-   Alles, was ins Modell geht, steht entweder in deinem Template oder in einem
-   Platzhalter, den du selbst gesetzt hast. Es gibt einen Inspektor, der den
-   exakten Request zeigt.
-2. **Zustand ist Daten, nicht Prosa.** Beziehungen, Fakten und Wissen liegen
-   strukturiert in SQLite. Das LLM erzählt; es verwaltet den Zustand nicht.
-3. **Das Modell darf vorschlagen, die Engine entscheidet.** Zustandsänderungen
-   kommen als JSON-Vorschlag zurück und werden gedeckelt, geloggt und sind
-   nachträglich editierbar.
-4. **Nichts geht verloren.** Jeder Turn ist ein Knoten in einem Baum. Regenerieren
-   erzeugt einen Zweig, löscht nichts.
-5. **Ein Container, keine Fremddienste.** Kein Postgres, kein Redis, keine separate
-   Vektordatenbank. Was auf einer NAS nicht mit 2 GB RAM läuft, kommt nicht rein.
+1. **Der System-Prompt gehört dir.** Die Engine injiziert nie versteckten Text.
+   Alles steht in deinem Template oder in einem Platzhalter, den du gesetzt hast.
+   Ein Inspektor zeigt den exakten Request.
+2. **Zustand ist Daten, nicht Prosa.** Beziehungen, Fakten, Grenzen und Antriebe
+   liegen strukturiert in SQLite. Das Modell erzählt; es verwaltet nichts.
+3. **Das Modell schlägt vor, die Engine entscheidet.** Zustandsänderungen kommen
+   als JSON zurück, werden gedeckelt, geloggt und bleiben editierbar.
+4. **Gefälligkeit wird gemessen, nicht erhofft.** Siehe §9.
+5. **Nichts geht verloren.** Jeder Turn ist ein Knoten im Baum; Regenerieren
+   erzeugt einen Zweig.
+6. **Ein Container, keine Fremddienste.** Kein Postgres, kein Redis, keine
+   separate Vektordatenbank.
 
 ---
 
-## 2. Warum nicht einfach SillyTavern?
-
-SillyTavern kann Charakterkarten, Lorebooks und Streaming — und läuft auf einer NAS.
-Die drei Dinge, die es *nicht* kann und die dein Ziel („realistisch, erinnernd,
-kohärent") ausmachen:
-
-| Fehlt in SillyTavern | Was Plot stattdessen tut |
-|---|---|
-| Beziehungen sind Prosa im Charakterblatt, driften beliebig | Gerichtete Achsen mit gedeckelten Deltas, Verlauf und Begründung pro Turn |
-| Gedächtnis = Vektorsuche über rohe Chatlogs | Kanonisches Fakten-Wiki mit Herkunft, Gültigkeitsspanne und Widerspruchserkennung |
-| Jeder NPC weiß implizit alles, was im Kontext steht | Wissensmodell: Fakten sind an Figuren gebunden, Prompt wird pro Sprecher gefiltert |
-
-Wenn dir Punkt 1 und 2 reichen, ist SillyTavern + ein gutes Prompt der schnellere
-Weg — das ist eine ehrliche Alternative und in OPEN-QUESTIONS.md als Frage 0 notiert.
-
----
-
-## 3. Systemüberblick
+## 2. Systemüberblick
 
 ```
    Handy / Laptop / Tablet
@@ -58,10 +39,9 @@ Weg — das ist eine ehrliche Alternative und in OPEN-QUESTIONS.md als Frage 0 n
    │   React-PWA  ──►  API (FastAPI)             │
    │                     │                       │
    │                     ├─ Prompt-Builder ──────┼──► OpenRouter
-   │                     │   (Budget, Slots)     │     /chat/completions (Erzählung)
-   │                     ├─ State-Extractor      │     /chat/completions (Utility, billig)
-   │                     ├─ Memory-Indexer       │     /embeddings        (RAG)
-   │                     │                       │
+   │                     ├─ Autonomie-Schicht    │     /chat/completions (Erzählung)
+   │                     ├─ State-Extractor      │     /chat/completions (Utility)
+   │                     ├─ Memory-Indexer       │     /embeddings
    │                     ▼                       │
    │                  SQLite (WAL)               │
    │                  + FTS5 + sqlite-vec        │
@@ -72,165 +52,164 @@ Weg — das ist eine ehrliche Alternative und in OPEN-QUESTIONS.md als Frage 0 n
 
 Ein Prozess, eine Datei, ein Volume. Kein Zustand außerhalb von `/data`.
 
+Weil du nicht selbst im Code arbeitest (E2), gilt zusätzlich: **jede Einstellung
+ist in der Oberfläche erreichbar** — Modelle, Provider-Filter, Budgets, Prompts,
+Schwellenwerte der Autonomie-Schicht. Die einzige Datei, die du je anfassen musst,
+ist die `.env` mit dem OpenRouter-Key bei der Erstinstallation.
+
 ---
 
-## 4. Stack **[Q2]**
+## 3. Stack
 
-**Empfehlung: Python 3.12 + FastAPI, React/Vite/TypeScript im Frontend.**
-
-- **Backend:** FastAPI + `httpx` (SSE-Streaming) + SQLite via `sqlite3`/SQLModel.
-  Grund: Textverarbeitung, Tokenizer, lokale Embedding-Runtimes und
-  Schema-validiertes JSON sind in Python schlicht ausgereifter, und der Teil,
-  der später wehtut (Retrieval-Tuning, Fakten-Dedup), lebt genau dort.
+- **Backend:** Python 3.12, FastAPI, `httpx` (SSE-Streaming), SQLite via SQLModel.
 - **Frontend:** React + Vite + TypeScript + Tailwind, als statisches Bundle vom
-  Backend ausgeliefert. Streaming über SSE. PWA-Manifest für „Zum Homescreen".
-- **DB:** SQLite im WAL-Modus. FTS5 (in jedem SQLite enthalten) für Stichwortsuche,
-  `sqlite-vec` als Extension für Vektoren. Beides in derselben Datei — ein Backup
-  sichert alles.
-- **Alternative:** komplett TypeScript (Node/Hono + React). Ein Sprachraum, ein
-  Build, einfacher zu warten, wenn du selbst mitcodest. Kostet bei Embeddings
-  und Tokenizern etwas Bequemlichkeit.
+  Backend ausgeliefert, PWA-Manifest für „Zum Homescreen".
+- **DB:** SQLite im WAL-Modus. FTS5 für Stichwortsuche, `sqlite-vec` für Vektoren.
+  Beides in derselben Datei — ein Backup sichert alles.
 
 ---
 
-## 5. Datenmodell
+## 4. Datenmodell
 
-Kern-Idee: **Event-Sourcing auf einem Baum.** Der Zustand (Beziehungen, gültige
-Fakten) wird nicht gespeichert, sondern aus dem Pfad von der Wurzel zum aktuellen
-Knoten gefaltet. Dadurch sind Speicherslots und Verzweigungen automatisch korrekt —
-ein Zweig kann keinen Zustand aus einem anderen Zweig sehen. Materialisierte
-Snapshots dienen nur als Cache.
+**Event-Sourcing auf einem Baum.** Beziehungswerte und gültige Fakten werden nicht
+gespeichert, sondern aus dem Pfad von der Wurzel zum aktuellen Knoten gefaltet.
+Dadurch sind Speicherslots und Verzweigungen automatisch korrekt: ein Zweig kann
+keinen Zustand aus einem anderen sehen. Snapshots sind nur Cache.
 
 ```sql
 story            (id, title, created_at, settings_json)
 prompt_template  (id, story_id, kind, name, body, version, created_at)
-                 -- kind: narrator | extractor | summarizer | ...
+                 -- kind: narrator | extractor | summarizer | timeskip | ...
 
-persona          (id, story_id, name, sheet_json)          -- deine Figur(en)
-character        (id, story_id, name, sheet_json, avatar_path, volatility_json)
-                 -- sheet_json: Rolle, Werte, Sprechweise, Ziele, Tabus, Geheimnisse
-
+persona          (id, story_id, name, sheet_json)
+character        (id, story_id, name, sheet_json, avatar_path)
 scene            (id, story_id, location, ingame_time, present_character_ids)
 
 node             (id, story_id, parent_id, kind, role, content,
-                  scene_id, model, usage_json, created_at)
-                 -- kind: turn | narration | event | offscreen | note
-                 -- Baum: parent_id -> node.id
+                  scene_id, model, usage_json, flags_json, created_at)
+                 -- kind: turn | narration | event | timeskip | note
+                 -- flags_json: Befunde der Autonomie-Schicht (§9)
 
 save_slot        (id, story_id, node_id, name, kind, created_at, preview)
-                 -- kind: manual | auto | checkpoint
 
 memory_fact      (id, story_id, subject_id, kind, text, importance, confidence,
-                  status, valid_from_node, valid_to_node, source_node_id, pinned)
+                  status, ingame_time, valid_from_node, valid_to_node,
+                  source_node_id, pinned)
                  -- status: proposed | canon | retired
-memory_vec       (fact_id, embedding)                       -- sqlite-vec
-memory_fts       (fact_id, text)                            -- FTS5
+memory_vec       (fact_id, embedding)              -- sqlite-vec
+memory_fts       (fact_id, text)                   -- FTS5
 memory_summary   (id, story_id, level, from_node, to_node, text)
-                 -- level: 1=Szene, 2=Kapitel, 3=Akt
-
 lore_entry       (id, story_id, keys_json, text, priority, always_on)
 
-knowledge        (character_id, fact_id, since_node, how)   -- wer weiß was
+knowledge        (character_id, fact_id, since_node, how)
                  -- how: witnessed | told | inferred | assumed(falsch!)
 
 rel_delta        (id, node_id, from_char, to_char, axis, delta, reason, quote)
-rel_snapshot     (node_id, from_char, to_char, axis, value)  -- Cache
+rel_snapshot     (node_id, from_char, to_char, axis, value)
+
+concession       (id, node_id, character_id, scale, topic, covered_by_state)
+                 -- Protokoll der Zugeständnisse, Grundlage des Widerstandsbudgets
 
 run_log          (id, node_id, purpose, request_json, response_meta_json,
                   cost_usd, latency_ms)
 ```
 
-`run_log` ist nicht optional: ohne den exakten abgeschickten Payload kannst du nie
-beurteilen, ob eine schlechte Antwort am Modell oder an deinem Prompt lag.
+`run_log` ist nicht optional: ohne den exakt abgeschickten Payload lässt sich nie
+klären, ob eine schlechte Antwort am Modell oder am Prompt lag.
+
+### Charakterblatt (`character.sheet_json`)
+
+Die Felder, die die Autonomie-Schicht braucht, sind **eigene Felder, keine Prosa**:
+
+```jsonc
+{
+  "kern":        "…zwei, drei Sätze, wer sie ist…",
+  "sprechweise": "…Satzbau, Wortwahl, Eigenheiten…",
+  "drives":      [ { "ziel": "…", "druck": 0-100, "sichtbar": true } ],
+  "hard_limits": [ "…was sie niemals tut, egal bei welchem Wert…" ],
+  "soft_limits": [ { "was": "…", "erst_ab": { "trust": 60 } } ],
+  "deal_breakers": [ "…was Werte drastisch senkt…" ],
+  "volatility":  { "trust": 0.4, "warmth": 1.2, "…": 1.0 },
+  "secrets":     [ { "text": "…", "preisgabe_ab": { "trust": 75 } } ]
+}
+```
+
+`volatility` unter 1 heißt: diese Achse bewegt sich bei dieser Figur langsamer.
+Eine misstrauische Figur baut Vertrauen langsam auf und verliert es schnell — das
+allein erzeugt schon spürbar unterschiedliche Persönlichkeiten.
 
 ---
 
-## 6. Der Prompt-Builder (Herzstück)
+## 5. Der Prompt-Builder
 
-Du schreibst den System-Prompt selbst. Die Engine rendert ihn mit Platzhaltern:
+Du schreibst den System-Prompt selbst (Startvorlage liegt bei). Platzhalter:
 
 ```
-{{persona}}            deine Figur
-{{characters}}         Blätter der anwesenden NPCs (gefiltert nach Sprecher)
-{{relationships}}      Beziehungslage als Verhaltensbeschreibung, nicht als Zahlen
-{{world}}              statische Weltbeschreibung
-{{lore}}               per Stichwort getriggerte Lore-Einträge
-{{memories}}           abgerufene Fakten aus dem Wiki
-{{summary}}            hierarchische Zusammenfassung des bisherigen Verlaufs
-{{scene}}              Ort, Zeit, Anwesende, was zuletzt geschah
-{{style}}              dein Stilleitfaden
-{{author_note}}        Regieanweisung, wird kurz vor dem letzten Turn eingefügt
+{{persona}}  {{characters}}  {{relationships}}  {{world}}  {{lore}}
+{{memories}} {{summary}}     {{scene}}          {{time}}   {{style}}
+{{drives}}   {{limits}}      {{directives}}     {{author_note}}
 ```
+
+`{{directives}}` ist der Kanal, über den die Autonomie-Schicht spricht — dort
+landen die harten Anweisungen aus §9. Du entscheidest, wo im Prompt er steht.
 
 Regeln des Builders:
 
-- **Reihenfolge ist fix und cache-freundlich:** stabile Blöcke zuerst
-  (System-Prompt, Charaktere, Welt, Lore), volatile zuletzt (Memories, Szene,
-  Verlauf). Das maximiert Prompt-Cache-Treffer; bei Anthropic/Qwen setzt der
-  Builder automatisch `cache_control`-Breakpoints an die Grenze, bei
-  OpenAI/DeepSeek/Gemini passiert es implizit. Ergebnis: der teure Präfix wird
-  bei jedem Turn nur einmal voll bezahlt.
-- **Budget-Manager:** jeder Block bekommt ein Token-Kontingent und eine Priorität.
-  Wird es eng, wird von unten gekürzt: älteste wörtliche Turns wandern zuerst in
-  die Zusammenfassung. Was gekürzt wurde, steht im Inspektor.
-- **Zahlen werden übersetzt.** `trust=22` geht nicht als Zahl ins Prompt, sondern
-  als Verhaltensregel: *„Mira misstraut dir. Sie weicht persönlichen Fragen aus
-  und prüft, ob deine Aussagen zu dem passen, was sie schon weiß."* Modelle
-  befolgen Verhaltensbeschreibungen deutlich zuverlässiger als Skalen.
-- **Sprecherfilter:** vor dem Rendern wird `{{memories}}` und `{{characters}}` auf
-  das gefiltert, was die sprechende Figur wissen darf (siehe §8).
+- **Cache-freundliche Reihenfolge:** stabile Blöcke zuerst (System-Prompt,
+  Charaktere, Welt, Lore), volatile zuletzt (Memories, Direktiven, Verlauf). Bei
+  Anthropic/Qwen setzt der Builder automatisch `cache_control`-Breakpoints an die
+  Grenze; bei OpenAI/DeepSeek/Gemini greift implizites Caching. Der teure Präfix
+  wird so pro Turn nur einmal voll bezahlt.
+- **Budget-Manager:** jeder Block hat Kontingent und Priorität. Wird es eng, wird
+  von unten gekürzt — älteste wörtliche Turns wandern zuerst in die
+  Zusammenfassung. Was gekürzt wurde, steht im Inspektor.
+- **Zahlen werden übersetzt.** `trust=22` geht nie als Zahl ins Prompt, sondern als
+  Verhalten: *„Mira misstraut dir. Sie weicht persönlichen Fragen aus und prüft,
+  ob deine Aussagen zu dem passen, was sie schon weiß."* Modelle befolgen
+  Verhaltensbeschreibungen deutlich zuverlässiger als Skalen.
+- **Wissensfilter:** `{{memories}}` und `{{characters}}` werden pro anwesender
+  Figur gefiltert (§8.3).
 
 ---
 
-## 7. Gedächtnis
-
-Vier Ebenen, bewusst getrennt:
+## 6. Gedächtnis
 
 | Ebene | Inhalt | Erzeugung |
 |---|---|---|
 | L0 | letzte N Turns wörtlich | — |
 | L1 | Szenen-/Kapitel-/Akt-Zusammenfassung | billiges Modell, rollierend |
-| L2 | Fakten-Wiki: atomare, editierbare Aussagen mit Herkunft | Extraktion + deine Korrektur |
+| L2 | Fakten-Wiki: atomare, editierbare Aussagen mit Herkunft und Zeitpunkt | Extraktion + deine Korrektur |
 | L3 | Lorebook: statisches Weltwissen, per Stichwort | von dir geschrieben |
 
-**Retrieval ist hybrid, nicht nur Vektoren.** Reine Vektorsuche versagt bei genau
-den Fragen, die im Rollenspiel zählen (Eigennamen, Daten, „was hat er damals
-gesagt"). Score:
+**Retrieval ist hybrid.** Reine Vektorsuche versagt bei genau den Fragen, die im
+Rollenspiel zählen — Eigennamen, Daten, „was hat er damals gesagt":
 
 ```
 score = w1·cosine + w2·bm25 + w3·importance + w4·recency + w5·betrifft_anwesende
-immer dabei: pinned facts, Fakten über anwesende Figuren, offene Konflikte
+immer dabei: pinned facts, Fakten über Anwesende, offene Konflikte, Geheimnisse
+             der sprechenden Figur
 ```
 
-**Extraktion läuft asynchron** nach dem Turn, blockiert die Antwort also nicht.
-Ein Utility-Call mit striktem JSON-Schema liefert Fakt-Kandidaten. Danach:
+**Extraktion läuft asynchron** nach dem Turn und blockiert die Antwort nicht. Ein
+Utility-Call mit striktem JSON-Schema liefert Kandidaten, dann:
 
-1. **Dedup:** Ähnlichkeit über Schwelle → bestehenden Fakt aktualisieren statt neu.
+1. **Dedup:** Ähnlichkeit über Schwelle → bestehenden Fakt aktualisieren.
 2. **Widerspruch:** neuer Fakt widerspricht altem → alter bekommt `valid_to_node`
-   und Status `retired`, statt gelöscht zu werden. Damit bleibt „sie *war* Ärztin,
-   bis sie gekündigt hat" korrekt darstellbar.
+   und `retired`, statt gelöscht zu werden. So bleibt „sie *war* Ärztin, bis sie
+   gekündigt hat" korrekt darstellbar.
 3. **Review:** neue Fakten landen je nach Einstellung als `proposed` in einer
    Warteschlange oder direkt als `canon` **[Q6]**.
 
 ---
 
-## 8. Realismus-Mechanik
+## 7. Beziehungen
 
-Vier Bausteine, in dieser Reihenfolge nach Wirkung pro Aufwand:
-
-### 8.1 Beziehungsachsen (gerichtet)
-
-Sympathie ist nicht symmetrisch — deshalb pro Richtung (A→B ≠ B→A):
+Gerichtete Achsen, weil Sympathie nicht symmetrisch ist (A→B ≠ B→A):
 
 `trust, warmth, attraction, respect, familiarity, tension, resentment, obligation, fear`
 
-Werte −100…+100. Jede Figur hat eine `volatility` pro Achse: eine misstrauische
-Figur baut Vertrauen langsam auf und verliert es schnell — das allein erzeugt
-schon spürbar unterschiedliche Persönlichkeiten.
-
-### 8.2 Zustands-Extraktion mit Deckelung
-
-Nach jedem Turn ein billiger Utility-Call mit `response_format: json_schema`:
+Werte −100…+100. Nach jedem Turn ein billiger Utility-Call mit
+`response_format: json_schema`:
 
 ```json
 {"deltas":[{"from":"mira","to":"player","axis":"trust","delta":-6,
@@ -238,115 +217,210 @@ Nach jedem Turn ein billiger Utility-Call mit `response_format: json_schema`:
             "quote":"…"}]}
 ```
 
-Die Engine **clampt** (z. B. max ±5 pro Turn, achsen- und figurenabhängig), loggt
-Begründung samt Zitat und schreibt einen `rel_delta`. Du kannst jeden Delta im UI
-nachträglich korrigieren — der Zustand wird neu gefaltet. Ohne Deckelung springen
-Modelle nach einem einzigen netten Satz von „Misstrauen" auf „Liebe"; das ist der
-häufigste Realismus-Killer.
+Die Engine **clampt** (Grundwert ±5 pro Turn, multipliziert mit `volatility`),
+loggt Begründung samt Zitat, schreibt einen `rel_delta`. Jeder Delta ist im UI
+korrigierbar; der Zustand wird dann neu gefaltet. Ohne Deckelung springen Modelle
+nach einem einzigen netten Satz von Misstrauen auf Zuneigung — der häufigste
+Realismus-Killer überhaupt.
 
-### 8.3 Wissensmodell (der größte Hebel)
-
-Jeder Fakt hat eine `known_by`-Menge mit *wie* er bekannt wurde. Beim Prompt-Bau
-wird nach Sprecher gefiltert: Was Mira nicht miterlebt hat und ihr niemand erzählt
-hat, steht nicht in ihrem Kontext. Das erzeugt von allein die Momente, die sich
-echt anfühlen — Missverständnisse, Nachfragen, jemand erfährt etwas zu spät.
-Der Modus `assumed` erlaubt sogar bewusst falsche Annahmen einer Figur.
-
-### 8.4 Agenda, Zeit und Reibung
-
-- Jeder NPC hat 1–3 aktive Ziele und Bedürfnisse (Geld, Sicherheit, Anerkennung …).
-  Sie stehen im Prompt und werden vom Extraktor fortgeschrieben.
-- **Off-Screen-Ticks [Q8]:** vergeht In-Game-Zeit, generiert ein Utility-Call, was
-  bei den Figuren passiert ist, als `offscreen`-Knoten. Beim nächsten Treffen ist
-  das Kontext. Das ist der Unterschied zwischen einer Welt und einer Warteschleife.
-- **Drift:** ohne Kontakt bewegen sich `warmth` und `tension` langsam Richtung
-  Baseline.
-- **Reibungsregeln** gehören in deinen Stilleitfaden: NPCs dürfen ablehnen, lügen,
-  eigene Interessen verfolgen und das Gespräch abbrechen. Ohne diese explizite
-  Erlaubnis wird jedes Modell gefällig — kein Mechanismus kompensiert das.
-
-### 8.5 Kontinuitätsprüfung
-
-Optionaler Pass nach der Antwort: prüft sie gegen `canon`-Fakten und markiert
-Widersprüche als Warnung im UI. **Nicht** automatisch umschreiben — sonst
-korrigierst du hinterher die Korrektur.
+**Drift:** ohne Kontakt bewegen sich `warmth` und `tension` über In-Game-Zeit
+langsam Richtung Baseline.
 
 ---
 
-## 9. Speicherslots und Verzweigung **[Q4]**
+## 8. Welt und Wissen
 
-Weil jeder Turn ein Knoten mit `parent_id` ist:
+### 8.1 Gruppenszenen (E8)
 
-- **Regenerieren** = Geschwisterknoten, alte Version bleibt erhalten.
+Im Spielleiter-Modus erzählt ein Aufruf die ganze Szene mit allen Anwesenden.
+Damit das nicht in Einheitsbrei kippt:
+
+- **Beziehungen der NPCs untereinander** stehen mit im Prompt — sie sind der Motor
+  jeder Gruppenszene. Wer wen nicht ausstehen kann, ist interessanter als jede
+  Beschreibung.
+- **Wissensblöcke pro Figur** statt eines gemeinsamen Kontexts: „Was Mira weiß:
+  … / Was Jonas weiß: …". Der Erzähler ist allwissend, die Figuren sind es nicht.
+- **Sprecherregie:** eine Zeile im Prompt, wer gerade Anlass hat zu reden — aus
+  Antriebsdruck und Spannungswerten abgeleitet, nicht zufällig.
+
+### 8.2 In-Game-Zeit (E9)
+
+Jede Szene trägt einen Zeitstempel, jeder Fakt den Zeitpunkt seiner Entstehung.
+Daraus folgen kostenlos: „vor drei Wochen", Termine, Fristen, Beziehungsdrift.
+
+**Zeitsprung-Zusammenfassung** statt Off-Screen-Simulation (E11): springst du
+explizit in der Zeit, fragt ein einziger Utility-Call, was in der Zwischenzeit bei
+den Figuren passiert ist — entlang ihrer Antriebe, nicht beliebig. Das Ergebnis
+zeigt die Engine dir zur Freigabe, bevor es Kanon wird. Kostet einen Call pro
+Sprung statt permanenter Ticks und liefert den größten Teil des Effekts.
+
+### 8.3 Wissensmodell
+
+Jeder Fakt hat eine `known_by`-Menge mit *wie*: `witnessed`, `told`, `inferred`,
+`assumed`. Beim Prompt-Bau wird pro Figur gefiltert. Was Mira nicht miterlebt hat
+und ihr niemand erzählt hat, steht nicht in ihrem Block.
+
+Das ist der größte Realismus-Hebel im ganzen System. Daraus entstehen von allein
+die Momente, die echt wirken: Missverständnisse, Nachfragen, jemand erfährt etwas
+zu spät. `assumed` erlaubt sogar bewusst falsche Annahmen einer Figur.
+
+### 8.4 Kontinuitätsprüfung
+
+Optionaler Pass nach der Antwort: prüft gegen `canon`-Fakten und markiert
+Widersprüche als Warnung. **Nicht** automatisch umschreiben — sonst korrigierst du
+hinterher die Korrektur.
+
+---
+
+## 9. Die Autonomie-Schicht (Kernfeature)
+
+Das Problem in einem Satz: **Modelle sind darauf trainiert, dir zu gefallen.** Eine
+Prompt-Regel dagegen wirkt zehn Turns lang und verliert dann gegen das Training —
+zuverlässig. Deshalb vier Ebenen statt einer, von weich nach hart.
+
+### 9.1 Textregeln (Basis, ab M2)
+
+Im Stilleitfaden, in deinen Worten. Die Startvorlage enthält einen Vorschlag.
+Wirkt, reicht aber nicht.
+
+### 9.2 Grenzen als harte Daten (ab M2)
+
+`hard_limits`, `soft_limits` mit Schwellen, `deal_breakers` und `secrets` mit
+Preisgabe-Schwelle stehen als eigene Felder im Charakterblatt und werden wörtlich
+in `{{limits}}` gerendert — nicht als Fließtext, den das Modell überliest, sondern
+als Liste. Ein `hard_limit` gilt bei jedem Beziehungswert, ausnahmslos.
+
+### 9.3 Gefälligkeits-Detektor (ab M2)
+
+Ein billiger Utility-Call prüft jede Antwort auf sieben konkrete Muster:
+
+| # | Muster |
+|---|---|
+| 1 | Zustimmung ohne Gegenleistung oder Bedenkzeit |
+| 2 | Spiegeln der Spieleremotion statt eigener Reaktion |
+| 3 | unaufgefordertes Lob, Bestätigung, Bewunderung |
+| 4 | heikle Frage wird bereitwillig und vollständig beantwortet |
+| 5 | Konflikt wird weichgespült statt ausgetragen |
+| 6 | Figur ergreift keine eigene Initiative — kein Antrieb sichtbar |
+| 7 | die Antwort lässt deine Figur handeln oder sprechen (E5) |
+
+Befunde landen in `node.flags_json` und werden im UI am Turn angezeigt, mit einem
+Knopf „nochmal, härter" — der regeneriert mit einer verschärften Direktive in
+`{{directives}}`. Standardmäßig markieren, nicht automatisch verwerfen; auf Wunsch
+umstellbar auf „bei Muster 7 immer automatisch neu".
+
+### 9.4 Widerstandsbudget und Konzessionsprüfung (ab M4)
+
+Die härteste Ebene, weil sie zählt statt zu bitten.
+
+**Konzessionsskala.** Der Extractor stuft jedes Nachgeben ein:
+
+| Stufe | Bedeutung |
+|---|---|
+| 0 | kein Nachgeben |
+| 1 | kleine Gefälligkeit |
+| 2 | spürbares Zugeständnis |
+| 3 | Grenzüberschreitung, Geheimnispreisgabe, Kernposition aufgegeben |
+
+**Deckung durch den Zustand.** Stufe 2 und 3 brauchen einen Beziehungswert, der
+das trägt (aus `soft_limits` / `secrets.preisgabe_ab`). Fehlt die Deckung, wird der
+Turn als *ungedeckte Konzession* markiert — samt Angabe, welcher Wert fehlt
+(„gibt das Geheimnis preis, braucht trust 75, hat 24").
+
+**Budget.** Die Engine zählt Konzessionen ≥ 2 pro Szene und pro Figur. Ab der
+zweiten schreibt sie eine harte Direktive in den nächsten Prompt:
+
+> Mira hat in dieser Szene bereits zweimal nachgegeben. Sie gibt jetzt nicht nach.
+> Sie hat einen eigenen Grund, warum nicht, und sie benennt ihn.
+
+**Antriebsdruck.** Jeder `drive` hat einen Druckwert, der steigt, solange das Ziel
+nicht vorankommt. Über der Schwelle erzeugt die Engine ebenfalls eine Direktive:
+*„Mira braucht bis Freitag Geld. Sie lenkt das Gespräch aktiv darauf, auch wenn es
+gerade unpassend ist."* Das ist die Mechanik, die aus reagierenden NPCs handelnde
+macht — ohne sie bleiben Figuren höflich abwartend, egal was im Prompt steht.
+
+Alle Schwellen (Budget, Deckungswerte, Druckgrenze, Clamp) sind in der Oberfläche
+einstellbar. Ich setze Startwerte, du drehst daran, bis der Ton stimmt.
+
+---
+
+## 10. Speicherslots und Verzweigung
+
+- **Regenerieren** = Geschwisterknoten; die alte Fassung bleibt.
 - **Bearbeiten** eines alten Turns = neuer Zweig ab dort. Fakten mit
   `valid_from_node` außerhalb des neuen Pfads sind dort automatisch ungültig — das
-  Gedächtnis „vergisst" korrekt, was in der verworfenen Zeitlinie passierte.
+  Gedächtnis vergisst korrekt, was in der verworfenen Zeitlinie geschah.
 - **Speicherslot** = benannter Zeiger auf einen Knoten. Laden heißt: Zeiger setzen.
-  Kein Kopieren, kein Datenverlust, beliebig viele Slots.
-- **Autosave** alle N Turns als `kind=auto`, mit Rotation.
-- **Export** einer Story als `.zip` (SQLite-Auszug + JSON + Bilder) für Backup
-  und zum Weitergeben.
+- **Autosave** alle N Turns, mit Rotation.
+- **Export** einer Story als `.zip` (SQLite-Auszug + JSON + Bilder).
+
+Die UI zeigt standardmäßig nur die Slot-Liste; die Baumansicht ist ein Schalter.
 
 ---
 
-## 10. Kosten und Modell-Routing
+## 11. Modelle, Kosten, Datenschutz
 
-- **Erzählung:** starkes Modell, hier lohnt es sich.
-- **Utility** (Extraktion, Zusammenfassung, Titel, Off-Screen): billiges,
-  schnelles Modell. Machen 80 % der Calls aus, aber sollen <10 % der Kosten sein.
-- **Prompt-Caching:** Blockreihenfolge wie in §6, `session_id` setzen, damit
-  OpenRouter sticky zum selben Provider routet. Bei langen Charakter-/Lore-Blöcken
-  ist das der größte Einzelhebel auf die Rechnung.
-- **Anzeige:** Kosten pro Turn, pro Sitzung und pro Story direkt aus dem
-  `usage`-Objekt der Antwort; Monatsbudget mit Warnschwelle.
-- **Provider-Routing:** `provider.data_collection: "deny"` erzwingbar, plus
-  Allow-/Blocklisten pro Story **[Q5]**.
+- **Erzählung:** starkes Modell. **Utility** (Extraktion, Detektor, Zusammenfassung,
+  Zeitsprung): billiges, schnelles Modell. Utility macht ~80 % der Calls aus und
+  soll <10 % der Kosten sein.
+- **Zero Data Retention erzwungen** (E7): OpenRouter routet dann nur zu Providern,
+  die Prompts und Antworten nicht speichern. Zusätzlich Provider-Allowlist pro
+  Story sowie `allow_fallbacks: false`, damit kein Fallback die Filter umgeht.
+  Prompt-Logging bei OpenRouter selbst bleibt aus, auch wenn es Rabatt gäbe.
+- **Modell-Vergleich (M1):** derselbe Prompt, zwei Modelle nebeneinander, du
+  wählst nach echtem deutschen Text. Wichtig, weil deutsche Prosaqualität zwischen
+  Modellen stärker schwankt als englische — und weil sich die Modelllage schneller
+  ändert, als ein Plan altert. Deshalb steht hier bewusst kein Modellname.
+- **Modellwechsel mitten im Spiel** ist ein Knopf, keine Einstellung: bei
+  Verweigerung oder Tonbruch wechselst du und regenerierst denselben Turn.
+- **Kostenanzeige** pro Turn, Sitzung und Story aus dem `usage`-Objekt;
+  Monatsbudget mit Warnschwelle.
 
 ---
 
-## 11. Betrieb auf der Synology **[Q1]**
+## 12. Betrieb auf der Synology **[Q1]**
 
-- **Image:** ein Multi-Arch-Image (amd64 + arm64), `docker-compose.yml`, ein
-  Volume `/data`. Installation über Container Manager (DSM 7.2+) oder per SSH.
-  Container Manager gibt es nicht auf allen Modellen — überwiegend x86/Plus-Serie
-  und einige ARM-Modelle; das ist der erste zu klärende Punkt.
+- **Image:** Multi-Arch (amd64 + arm64), `docker-compose.yml`, ein Volume `/data`.
+  Installation über Container Manager (DSM 7.2+). Container Manager gibt es nicht
+  auf allen Modellen — überwiegend x86/Plus-Serie und einige ARM-Modelle.
 - **Zugriff von unterwegs:** **Tailscale** (Paket im Synology Package Center) ist
-  die empfohlene Variante — kein offener Port, kein Zertifikatsgefummel, läuft auf
-  iOS/Android. Alternative: DSM Reverse Proxy mit eigener Subdomain und Let's
-  Encrypt. **Kein Port-Forwarding auf den Container ohne Auth.**
+  die empfohlene Variante — kein offener Port, kein Zertifikatsgefummel, App für
+  iOS/Android. Alternative: DSM Reverse Proxy mit Subdomain und Let's Encrypt.
+  **Kein Port-Forwarding auf den Container ohne Auth.**
 - **Auth:** Passwort (argon2) + Session-Cookie, optional TOTP. Der OpenRouter-Key
-  liegt ausschließlich serverseitig in einer `.env`, nie im Frontend-Bundle.
-- **Backup:** Hyper Backup auf `/data`; zusätzlich App-eigener Story-Export.
-  SQLite im WAL-Modus vorher per `VACUUM INTO` konsistent wegschreiben.
-- **Ressourcen:** Das Backend ist I/O-lastig, nicht CPU-lastig — solange Embeddings
-  extern laufen. Lokale Embeddings brauchen ~1–2 GB RAM und belasten eine
-  Celeron-CPU spürbar (Sekunden pro Batch, aber asynchron, also erträglich) **[Q3]**.
+  liegt ausschließlich serverseitig, nie im Frontend-Bundle.
+- **Backup:** Hyper Backup auf `/data`, plus App-eigener Story-Export. SQLite
+  vorher per `VACUUM INTO` konsistent wegschreiben.
+- **Ressourcen:** Das Backend ist I/O-lastig, nicht CPU-lastig — Embeddings laufen
+  extern (E3). Ein kleines Plus-Modell langweilt sich dabei.
 
 ---
 
-## 12. Roadmap
+## 13. Roadmap
 
-Jeder Meilenstein ist für sich benutzbar — du kannst nach M1 schon spielen.
+Jeder Meilenstein ist für sich benutzbar; nach M1 kannst du spielen.
 
 | M | Inhalt | Ergebnis |
 |---|---|---|
-| **M0** | Repo-Gerüst, Docker-Image, Auth, OpenRouter-Anbindung, Modell-Liste | Läuft auf der NAS, erreichbar vom Handy |
-| **M1** | Chat mit Streaming, Knotenbaum, Speicherslots, Regenerate/Edit/Branch, Payload-Inspektor, Kostenanzeige | Spielbar |
-| **M2** | Charakterkarten, Persona, Prompt-Template-Editor mit Platzhaltern, Token-Budget | Dein eigener System-Prompt trägt das Spiel |
+| **M0** | Repo-Gerüst, Docker-Image, Auth, OpenRouter-Anbindung, Modellwahl mit ZDR-Filter | Läuft auf der NAS, erreichbar vom Handy |
+| **M1** | Chat mit Streaming, Knotenbaum, Speicherslots, Regenerate/Edit/Branch, Payload-Inspektor, Kostenanzeige, Modell-Vergleich | Spielbar, und du findest dein Modell für Deutsch |
+| **M2** | Charakterkarten inkl. Grenzen und Antrieben, Persona, Prompt-Editor, Token-Budget, **Gefälligkeits-Detektor** | Dein System-Prompt trägt das Spiel, Gefälligkeit wird sichtbar |
 | **M3** | Zusammenfassungen, Fakten-Wiki, Hybrid-Retrieval, Lorebook | Figuren erinnern sich |
-| **M4** | Beziehungsachsen, Delta-Extraktion mit Deckelung, Beziehungs-Timeline im UI | Beziehungen entwickeln sich nachvollziehbar |
-| **M5** | Wissensmodell, NPC-Agenda, Off-Screen-Ticks, Kontinuitätswarnungen | Die Welt lebt weiter |
-| **M6** | PWA-Politur, Export/Import, Volltextsuche über alle Stories, Gruppenszenen | Alltagstauglich |
+| **M4** | Beziehungsachsen mit Deckelung, **Widerstandsbudget, Konzessionsprüfung, Antriebsdruck**, Beziehungs-Timeline | Figuren wehren sich und wollen etwas |
+| **M5** | Gruppenszenen, In-Game-Zeit, Zeitsprung-Zusammenfassung, Wissensmodell, Kontinuitätswarnungen | Die Welt hat mehr als eine Person darin |
+| **M6** | PWA-Politur, Export/Import, Volltextsuche über alle Stories | Alltagstauglich |
 
 ---
 
-## 13. Risiken und Gegenmaßnahmen
+## 14. Risiken
 
 | Risiko | Gegenmaßnahme |
 |---|---|
-| Kontext-Drift trotz Gedächtnis | Harte `canon`-Fakten immer im Prompt, regelmäßiges Re-Anchoring, Kontinuitätswarnungen |
-| Kosten laufen bei langen Kampagnen weg | Budget-Manager, aggressive Summarisierung, Caching, Utility-Routing, Monatslimit |
-| Modell verweigert Inhalte oder bricht Ton | Modell-/Provider-Auswahl pro Story, schneller Modellwechsel mitten im Spiel **[Q5]** |
-| Extraktor halluziniert Fakten | Provenance + Zitat bei jedem Fakt, `proposed`-Warteschlange, alles editierbar |
-| Over-Engineering | Wissensmodell und Agenda erst ab M5; M1–M4 sind ohne sie vollständig nutzbar |
-| Ein-Personen-Projekt schläft ein | Meilensteine einzeln nutzbar, kein „Big Bang"; Datenmodell ist der einzige Teil, der von Anfang an stimmen muss |
+| Gefälligkeit setzt sich trotz allem durch | Vier Ebenen statt einer (§9); der Detektor macht es zumindest **sichtbar**, statt es schleichen zu lassen |
+| Autonomie-Schicht überschießt: Figuren werden stur statt lebendig | Alle Schwellen einstellbar; Budget gilt pro Szene, nicht global; Direktiven verlangen *Begründung*, nicht bloßes Nein |
+| Deutsche Prosa enttäuscht beim gewählten Modell | Modell-Vergleich in M1, Modellwechsel als Knopf |
+| ZDR-Filter schränkt Modellauswahl spürbar ein | Bewusst akzeptiert (E7); Allowlist pro Story, damit du im Einzelfall lockern kannst |
+| Kosten laufen bei langen Kampagnen weg | Budget-Manager, Caching, Utility-Routing, Monatslimit |
+| Extraktor halluziniert Fakten | Provenance und Zitat bei jedem Fakt, `proposed`-Warteschlange, alles editierbar |
+| Utility-Calls verdreifachen die Latenz | Detektor und Extraktion laufen **nach** dem Streaming, asynchron; du wartest nie auf sie |
+| Ein-Personen-Projekt schläft ein | Meilensteine einzeln nutzbar; nur das Datenmodell muss von Anfang an stimmen |

@@ -18,7 +18,7 @@ nicht mehr als Option geführt.
 | E11 | **Keine Off-Screen-Simulation** (vorerst) | Stattdessen Zeitsprung-Zusammenfassung: nur bei explizitem Sprung, ein Call, 80 % des Effekts |
 | E12 | **Kleine, günstige Modelle** (Dolphin-Mistral, Gemini-Flash-Klasse) | Kosten fallen als Engpass weg, Regelbefolgung wird zum Engpass. Prompt-Diät, Regelrotation, Direktiven ans Ende — siehe PLAN.md §5.1 und §11 |
 | E13 | **Analyst als eigene Modellrolle** | Folge aus E12: Dolphin kann kein striktes JSON-Schema, die Zustandsmechanik braucht es. Erzähler erzählt, Analyst rechnet |
-| E14 | **Zielgerät ist die DS124: kein Docker, 1 GB RAM, arm64** | Container Manager gibt es dort nicht. Ein Binary statt eines Containers, Go statt Python, Frontend vorgebaut und eingebettet. Siehe BETRIEB-DS124.md |
+| E14 | **Zielgerät ist die DS124: arm64, 1 GB RAM, Container Manager läuft** | Ausgeliefert wird beides: ein arm64-Image für Container Manager (Hauptweg) und dasselbe Binary zum nativen Start (Alternative, spart den Docker-Daemon). Go statt Python wegen des Arbeitsspeichers, Frontend vorgebaut und eingebettet |
 | E15 | **Zugriff über Tailscale, ohne Reverse Proxy** | WireGuard verschlüsselt bereits; kein Zertifikat nötig. App-Login bleibt trotzdem |
 | E16 | **ZDR nur für den Analysten, Erzähler über Provider-Allowlist** | Löst den Konflikt aus modelle.md §2: Venice bleibt für die Erzählung erlaubt, alle anderen Anbieter gesperrt |
 | E17 | **Retrieval startet mit FTS5, Vektoren erst bei Bedarf** | Folge aus E14: `sqlite-vec` als arm64-Modul ist Mehraufwand, den BM25 auf dieser Hardware vermutlich erspart. Entscheidung fällt in M3 |

@@ -7,22 +7,27 @@
 | CPU | Realtek RTD1619B, 4 × ARM Cortex-A55, 1,7 GHz (arm64) |
 | RAM | 1 GB DDR4, **nicht erweiterbar** |
 | DSM | 7.3.2 |
-| Container Manager | **nicht verfügbar** |
+| Container Manager | **läuft** (24.0.2-1606, per Screenshot bestätigt) |
 
-Container Manager setzt einen Intel- oder AMD-Prozessor voraus. Auf Realtek-basierten
-Modellen — DS124, DS223, DS223j und der Rest der Value-Linie — erscheint das Paket
-gar nicht erst im Package Center, und es gibt keinen offiziellen Weg drumherum.
+Die offizielle Kompatibilitätsliste führt Realtek-Modelle nicht für Container
+Manager, und das Community-Nachrüstprojekt deckt die RTD1619B-Generation nicht ab.
+Auf diesem Gerät läuft es trotzdem — die Doku beschreibt also den Docker-Weg als
+Hauptweg und den nativen Start als Alternative, falls Container Manager nach einem
+DSM-Update einmal verschwindet.
 
-Das Docker-Konzept aus der ersten Planung fällt damit weg. Es geht trotzdem, aber
-anders — und die Einschränkung erzwingt zwei Änderungen, die das Ergebnis
-unterm Strich sogar robuster machen.
+Der Engpass ist damit nicht die Containerfähigkeit, sondern **der Arbeitsspeicher**.
 
 ---
 
-## Die Lösung: ein einzelnes Binary
+## Warum trotzdem ein einzelnes Binary
 
-**Backend in Go statt Python.** Das revidiert E2, und zwar aus einem konkreten
-Grund: Die Begründung für Python waren Tokenizer, Embedding-Bibliotheken und
+**Backend in Go statt Python.** Das revidiert E2 — und der Grund ist jetzt nicht
+mehr das fehlende Docker, sondern das 1 GB RAM, das sich schon eine ganze Reihe
+laufender Pakete teilt (Container Manager, Antivirus Essential, Active Insight,
+Advanced Media Extensions, Download Station, File Station …). Der Docker-Daemon
+belegt davon allein 100–200 MB.
+
+Die inhaltliche Begründung bleibt dieselbe: Die Begründung für Python waren Tokenizer, Embedding-Bibliotheken und
 Retrieval-Werkzeuge. Genau die brauchen wir hier nicht — Embeddings kommen von
 OpenRouter (E3), die Suche macht SQLite, und Tokenzahlen liefert OpenRouter im
 `usage`-Objekt zurück. Übrig bleibt HTTP, SSE, JSON und SQLite. Das kann Go, und
@@ -30,39 +35,52 @@ es kann es in einer Form, die auf dieser Hardware alles andere schlägt:
 
 |  | Go | Python |
 |---|---|---|
-| Installation | **eine Datei hochladen** | Python-Paket, venv, `pip install` über eine schwache CPU |
-| SSH nötig | **nein** | praktisch ja |
+| Image-Größe | ~15 MB (`FROM scratch`) | ~150 MB |
 | RAM im Betrieb | ~25–50 MB | ~100–150 MB |
-| DSM-Update überlebt | ja, es ist nur eine Datei | Paketwechsel kann das venv zerlegen |
+| ohne Docker startbar | **ja, eine Datei** | Python-Paket, venv, `pip install` über eine schwache CPU |
 | Frontend | ins Binary eingebettet (`embed.FS`) | separat auszuliefern |
 
-Bei 1 GB RAM, von dem DSM selbst den Großteil belegt, ist der Unterschied nicht
-kosmetisch. Und für dich, der nicht im Code arbeitet, ist „eine Datei ersetzen und
-neu starten" das ganze Update-Verfahren.
+Bei 1 GB, das sich DSM mit einem halben Dutzend Paketen teilt, ist der Unterschied
+nicht kosmetisch — er entscheidet, ob die NAS entspannt läuft oder swappt.
 
 Das React-Frontend bleibt wie geplant — es wird in GitHub Actions gebaut und ins
 Binary eingebettet. **Auf der NAS läuft nie ein Build**, nur das fertige Programm.
 
 ---
 
-## Installation ohne SSH
+## Weg A: Container Manager (Hauptweg)
 
-1. **Binary holen:** GitHub Actions baut bei jedem Release ein `plot-linux-arm64`.
-   Herunterladen, in der File Station nach `/volume1/plot/` ziehen.
-2. **Konfiguration:** Beim ersten Start legt das Programm `/volume1/plot/config.json`
-   an. Den OpenRouter-Key trägst du danach **in der Weboberfläche** ein, nicht in
-   der Datei — du sollst nie einen Texteditor auf der NAS brauchen.
-3. **Autostart:** Systemsteuerung → Aufgabenplaner → Erstellen → Ausgelöste Aufgabe
-   → Benutzerdefiniertes Skript. Ereignis „Hochfahren", Benutzer `root`, im
+GitHub Actions baut bei jedem Release ein arm64-Image und legt es auf GHCR ab.
+
+1. **Ordner anlegen:** In der File Station `/volume1/docker/plot/` erstellen.
+2. **Projekt anlegen:** Container Manager → Projekt → Erstellen, als Quelle die
+   `docker-compose.yml` aus dem Repo einfügen (oder hochladen). Sie mountet
+   `/volume1/docker/plot` als Datenordner und veröffentlicht Port 8080.
+3. **Starten.** Container Manager zieht das Image und startet es; Autostart nach
+   einem Neustart der NAS ist eingebaut.
+4. **Aufrufen:** `http://<tailscale-name>:8080`, den OpenRouter-Key trägst du
+   **in der Weboberfläche** ein — du sollst nie einen Texteditor auf der NAS
+   brauchen.
+
+Updates: im Projekt auf „Erstellen"/Pull klicken, das Image wird ersetzt.
+
+## Weg B: nativ, ohne Docker (Alternative)
+
+Sinnvoll, wenn der Arbeitsspeicher knapp wird oder Container Manager nach einem
+DSM-Update einmal nicht mehr da ist. Spart die 100–200 MB des Docker-Daemons.
+
+1. `plot-linux-arm64` aus dem Release herunterladen, per File Station nach
+   `/volume1/plot/` ziehen.
+2. Systemsteuerung → Aufgabenplaner → Erstellen → Ausgelöste Aufgabe →
+   Benutzerdefiniertes Skript. Ereignis „Hochfahren", Benutzer `root`, im
    Skriptfeld eine Zeile:
    ```
    /volume1/plot/plot-linux-arm64 --data /volume1/plot &
    ```
    „Jetzt ausführen" startet es sofort, ohne Neustart.
-4. **Aufrufen:** `http://<tailscale-name>:8080` von jedem Gerät im Tailnet.
 
-Kein SSH, kein Terminal, kein Paketmanager. Updates: neue Datei hochladen, Aufgabe
-einmal stoppen und starten.
+Kein SSH, kein Terminal, kein Paketmanager. Dieselbe SQLite-Datei funktioniert für
+beide Wege — du kannst jederzeit wechseln, ohne etwas zu verlieren.
 
 ## Zugriff (Tailscale ist schon da)
 
@@ -95,7 +113,12 @@ reichlich. Die Antwortzeit bestimmt das Modell, nicht die NAS.
   machbar, aber ich prüfe das erst in M3, wenn sich zeigt, dass BM25 nicht reicht.
   Für Eigennamen, Zitate und Daten — das, was im Rollenspiel am häufigsten gesucht
   wird — ist Stichwortsuche ohnehin die bessere Hälfte.
-- **Wenn Synology Photos oder ein Backup parallel indexiert**, wird es kurz zäh.
+- **Der Arbeitsspeicher ist der eigentliche Engpass.** Schau vor der Installation
+  einmal in Systemsteuerung → Ressourcen-Monitor, wie viel wirklich frei ist.
+  Bleiben unter ~150 MB übrig, lohnt es sich, nicht benötigte Pakete zu stoppen
+  (Antivirus Essential und Download Station laufen bei dir dauerhaft mit) — oder
+  gleich Weg B ohne Docker zu nehmen.
+- **Wenn ein Backup oder eine Medienindizierung parallel läuft**, wird es kurz zäh.
   Nichts geht kaputt, es dauert nur.
 - **Kein Prompt-Caching**, aber das lag ohnehin am Anbieter (siehe modelle.md), nicht
   an der NAS.

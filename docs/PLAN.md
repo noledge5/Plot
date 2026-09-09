@@ -34,7 +34,7 @@ Prompt-Startvorlage: [system-prompt-vorlage.md](system-prompt-vorlage.md)
             │  HTTPS (Tailscale oder DSM Reverse Proxy)
             ▼
    ┌─────────────────────────────────────────────┐
-   │  ein Go-Binary auf der Synology DS124        │
+   │  Go-Binary auf der DS124 (Container o. nativ)│
    │                                             │
    │   React-PWA  ──►  API (eingebettet)          │
    │                     │                       │
@@ -60,10 +60,10 @@ trägst du in der Weboberfläche ein: den OpenRouter-Key beim ersten Start.
 
 ## 3. Stack
 
-- **Backend:** Go, ein einzelnes statisches Binary für arm64. Kein Docker, keine
-  Laufzeitumgebung, keine Abhängigkeiten auf dem Zielgerät — die Ziel-NAS (DS124)
-  unterstützt Container Manager nicht und hat 1 GB RAM. Begründung und
-  Installationsweg: [BETRIEB-DS124.md](BETRIEB-DS124.md).
+- **Backend:** Go, ein einzelnes statisches Binary für arm64 — ausgeliefert als
+  schlankes Container-Image und als nackte Datei. Keine Laufzeitumgebung, keine
+  Abhängigkeiten auf dem Zielgerät; entscheidend ist das 1 GB RAM der DS124.
+  Begründung und Installationswege: [BETRIEB-DS124.md](BETRIEB-DS124.md).
 - **Frontend:** React + Vite + TypeScript + Tailwind, in GitHub Actions gebaut und
   per `embed.FS` ins Binary eingebettet. PWA-Manifest für „Zum Homescreen".
   Auf der NAS läuft nie ein Build.
@@ -437,11 +437,13 @@ der Kampagne nichts außer einem Stilbruch.
 
 Ausführlich in [BETRIEB-DS124.md](BETRIEB-DS124.md). Die Eckpunkte:
 
-- **Kein Docker.** Container Manager verlangt Intel oder AMD; die DS124 hat einen
-  Realtek RTD1619B. Stattdessen ein statisches arm64-Binary, das per File Station
-  hochgeladen und im DSM-Aufgabenplaner als Autostart eingetragen wird. Kein SSH,
-  kein Terminal, kein Paketmanager — Updates heißen „Datei ersetzen".
-- **1 GB RAM, nicht erweiterbar.** Deshalb Go statt Python (~25–50 MB statt
+- **Zwei Wege, ein Artefakt.** Container Manager läuft auf dem Gerät, also ist ein
+  arm64-Image der Hauptweg (Projekt anlegen, `docker-compose.yml` einfügen,
+  starten). Dasselbe Go-Binary startet alternativ nativ über den DSM-Aufgabenplaner
+  und spart dann die 100–200 MB des Docker-Daemons. Dieselbe SQLite-Datei für
+  beide — Wechsel jederzeit möglich.
+- **1 GB RAM, nicht erweiterbar, geteilt mit einem halben Dutzend DSM-Paketen.**
+  Deshalb Go statt Python (~15 MB Image und ~25–50 MB RAM statt ~150 MB und
   ~100–150 MB), Frontend vorgebaut und eingebettet, keine lokalen Modelle.
 - **Zugriff über Tailscale**, das bereits eingerichtet ist. Der Tailnet-Verkehr ist
   über WireGuard verschlüsselt, also kein Reverse Proxy und kein Zertifikat nötig.
@@ -461,7 +463,7 @@ Jeder Meilenstein ist für sich benutzbar; nach M1 kannst du spielen.
 
 | M | Inhalt | Ergebnis |
 |---|---|---|
-| **M0** | Repo-Gerüst, arm64-Build in GitHub Actions, Autostart-Einrichtung, Auth, OpenRouter-Anbindung, **Routing-Test: ZDR + Venice** | Läuft auf der DS124, erreichbar vom Handy |
+| **M0** | Repo-Gerüst, arm64-Build in GitHub Actions (Image + Binary), `docker-compose.yml`, Auth, OpenRouter-Anbindung, **Routing-Test: ZDR + Venice** | Läuft auf der DS124, erreichbar vom Handy |
 | **M1** | Chat mit Streaming, Knotenbaum, Speicherslots, Regenerate/Edit/Branch, Payload-Inspektor, Kostenanzeige, Modell-Vergleich | Spielbar, und du findest dein Modell für Deutsch |
 | **M2** | Charakterkarten inkl. Grenzen und Antrieben, Persona, Prompt-Editor, Token-Budget, **Gefälligkeits-Detektor** | Dein System-Prompt trägt das Spiel, Gefälligkeit wird sichtbar |
 | **M3** | Zusammenfassungen, Fakten-Wiki, Hybrid-Retrieval, Lorebook | Figuren erinnern sich |

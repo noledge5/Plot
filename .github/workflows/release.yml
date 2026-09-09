@@ -1,0 +1,80 @@
+name: Veröffentlichen
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  veroeffentlichen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Oberfläche bauen
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+
+      - name: Tests
+        run: go test ./...
+
+      # Für den Weg ohne Docker: nackte Binaries, die per File Station auf die
+      # NAS wandern und im Aufgabenplaner gestartet werden.
+      - name: Binaries bauen
+        run: |
+          mkdir -p auslieferung
+          for arch in arm64 amd64; do
+            CGO_ENABLED=0 GOOS=linux GOARCH=$arch \
+              go build -trimpath -ldflags="-s -w" -o auslieferung/plot-linux-$arch ./cmd/plot
+          done
+          ls -lh auslieferung/
+
+      - name: Binaries an das Release hängen
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: auslieferung/*
+          body: |
+            **Container Manager:** Projekt mit der `docker-compose.yml` aus dem Repo anlegen.
+
+            **Ohne Docker:** `plot-linux-arm64` (DS124 und andere ARM-Modelle) bzw.
+            `plot-linux-amd64` per File Station nach `/volume1/plot/` legen und im
+            Aufgabenplaner als Autostart eintragen — siehe `docs/BETRIEB-DS124.md`.
+
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bildnamen bestimmen
+        id: name
+        run: echo "bild=ghcr.io/$(echo '${{ github.repository_owner }}' | tr 'A-Z' 'a-z')/plot" >> "$GITHUB_OUTPUT"
+
+      - name: Bild bauen und veröffentlichen
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ steps.name.outputs.bild }}:latest
+            ${{ steps.name.outputs.bild }}:${{ github.ref_name }}

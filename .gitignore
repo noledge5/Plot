@@ -1,6 +1,7 @@
-# Gebaute Oberfläche: entsteht in GitHub Actions, nur der Platzhalter ist im Repo.
+# Die gebaute Oberfläche entsteht beim Release-Build und gehört nicht ins Repo.
+# Das Verzeichnis selbst muss bleiben, weil go:embed sonst nicht übersetzt.
 /internal/webui/dist/*
-!/internal/webui/dist/index.html
+!/internal/webui/dist/.gitkeep
 
 /web/node_modules/
 /web/dist/

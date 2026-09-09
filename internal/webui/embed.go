@@ -18,3 +18,11 @@ func FS() fs.FS {
 	}
 	return sub
 }
+
+// Vorhanden sagt, ob überhaupt eine gebaute Oberfläche eingebettet ist. In
+// einem Arbeitsbaum ohne vorangegangenen Frontend-Build ist sie es nicht;
+// der Server liefert dann einen Hinweis statt einer leeren Seite.
+func Vorhanden() bool {
+	_, err := fs.Stat(FS(), "index.html")
+	return err == nil
+}

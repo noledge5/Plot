@@ -35,8 +35,8 @@ es kann es in einer Form, die auf dieser Hardware alles andere schlägt:
 
 |  | Go | Python |
 |---|---|---|
-| Image-Größe | ~15 MB (`FROM scratch`) | ~150 MB |
-| RAM im Betrieb | ~25–50 MB | ~100–150 MB |
+| Image-Größe | **17 MB** (gemessen, `FROM scratch`) | ~150 MB |
+| RAM im Betrieb | **3,4 MB im Leerlauf** (gemessen), unter Last deutlich unter 50 MB | ~100–150 MB |
 | ohne Docker startbar | **ja, eine Datei** | Python-Paket, venv, `pip install` über eine schwache CPU |
 | Frontend | ins Binary eingebettet (`embed.FS`) | separat auszuliefern |
 
@@ -53,9 +53,10 @@ Binary eingebettet. **Auf der NAS läuft nie ein Build**, nur das fertige Progra
 GitHub Actions baut bei jedem Release ein arm64-Image und legt es auf GHCR ab.
 
 1. **Ordner anlegen:** In der File Station `/volume1/docker/plot/` erstellen.
-2. **Projekt anlegen:** Container Manager → Projekt → Erstellen, als Quelle die
-   `docker-compose.yml` aus dem Repo einfügen (oder hochladen). Sie mountet
-   `/volume1/docker/plot` als Datenordner und veröffentlicht Port 8080.
+2. **Projekt anlegen:** Container Manager → Projekt → Erstellen, Pfad
+   `/volume1/docker/plot`, als Quelle „YAML erstellen" und den Inhalt der
+   `docker-compose.yml` aus dem Repo einfügen. Sie hängt denselben Ordner als
+   `/data` ein und veröffentlicht Port 8080.
 3. **Starten.** Container Manager zieht das Image und startet es; Autostart nach
    einem Neustart der NAS ist eingebaut.
 4. **Aufrufen:** `http://<tailscale-name>:8080`, den OpenRouter-Key trägst du
@@ -102,6 +103,10 @@ Der OpenRouter-Key liegt serverseitig in `/volume1/plot/` und geht nie ans Front
 dazu ein bisschen JSON und ein paar SQLite-Abfragen. Dafür sind vier A55-Kerne
 reichlich. Die Antwortzeit bestimmt das Modell, nicht die NAS.
 
+Gemessen am fertigen Container: **17 MB Image, 3,4 MB Arbeitsspeicher im
+Leerlauf.** Damit ist die Sorge um den knappen Speicher weitgehend erledigt —
+der Docker-Daemon selbst braucht mehr als die Anwendung darin.
+
 **Grenzen, ehrlich:**
 
 - **Ein Nutzer, eine Session gleichzeitig.** Für dich ausgelegt, nicht für eine
@@ -113,11 +118,10 @@ reichlich. Die Antwortzeit bestimmt das Modell, nicht die NAS.
   machbar, aber ich prüfe das erst in M3, wenn sich zeigt, dass BM25 nicht reicht.
   Für Eigennamen, Zitate und Daten — das, was im Rollenspiel am häufigsten gesucht
   wird — ist Stichwortsuche ohnehin die bessere Hälfte.
-- **Der Arbeitsspeicher ist der eigentliche Engpass.** Schau vor der Installation
-  einmal in Systemsteuerung → Ressourcen-Monitor, wie viel wirklich frei ist.
-  Bleiben unter ~150 MB übrig, lohnt es sich, nicht benötigte Pakete zu stoppen
-  (Antivirus Essential und Download Station laufen bei dir dauerhaft mit) — oder
-  gleich Weg B ohne Docker zu nehmen.
+- **Der Arbeitsspeicher bleibt der Punkt, den man im Auge behält** — allerdings
+  wegen des Docker-Daemons, nicht wegen der Anwendung. Schau einmal in
+  Systemsteuerung → Ressourcen-Monitor. Wird es eng, spart Weg B den Daemon
+  komplett ein und kostet dich nur die 3–4 MB des Programms selbst.
 - **Wenn ein Backup oder eine Medienindizierung parallel läuft**, wird es kurz zäh.
   Nichts geht kaputt, es dauert nur.
 - **Kein Prompt-Caching**, aber das lag ohnehin am Anbieter (siehe modelle.md), nicht

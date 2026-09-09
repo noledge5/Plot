@@ -1,0 +1,8 @@
+web/node_modules
+web/dist
+internal/webui/dist/assets
+.git
+data
+*.sqlite*
+plot
+plot-linux-*

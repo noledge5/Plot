@@ -1,0 +1,52 @@
+name: Prüfen
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  pruefen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Oberfläche bauen
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Formatierung
+        run: |
+          nicht_formatiert=$(gofmt -l .)
+          if [ -n "$nicht_formatiert" ]; then
+            echo "Nicht formatiert:"; echo "$nicht_formatiert"; exit 1
+          fi
+
+      - name: Tests
+        run: go test ./...
+
+      # Baut das Bild für beide Zielarchitekturen, ohne zu veröffentlichen -
+      # damit ein kaputtes Dockerfile nicht erst beim Release auffällt.
+      - uses: docker/setup-buildx-action@v3
+      - name: Bild bauen (ohne Veröffentlichung)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false

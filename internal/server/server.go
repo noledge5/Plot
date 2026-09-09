@@ -68,9 +68,24 @@ func (s *Server) routes() {
 	s.mux.Handle("/", s.static())
 }
 
+// ohneOberflaeche erklärt, was fehlt, statt eine leere Seite auszuliefern.
+// Das passiert nur in einem Arbeitsbaum, in dem das Frontend nie gebaut wurde -
+// ausgelieferte Binaries tragen es immer in sich.
+const ohneOberflaeche = `<!doctype html><meta charset="utf-8"><title>Plot</title>
+<p style="font:16px system-ui;margin:3rem auto;max-width:34rem">
+Dieses Binary wurde ohne Oberfläche gebaut. Die Schnittstelle unter <code>/api/</code>
+funktioniert. Für die Oberfläche im Ordner <code>web/</code> einmal
+<code>npm install &amp;&amp; npm run build</code> ausführen und das Binary neu bauen.</p>`
+
 // static liefert die eingebettete Oberfläche. Unbekannte Pfade bekommen die
 // index.html, damit die Navigation im Browser funktioniert.
 func (s *Server) static() http.Handler {
+	if !webui.Vorhanden() {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write([]byte(ohneOberflaeche))
+		})
+	}
 	inhalt := webui.FS()
 	datei := http.FileServer(http.FS(inhalt))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

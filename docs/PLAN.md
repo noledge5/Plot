@@ -365,7 +365,9 @@ einstellbar. Ich setze Startwerte, du drehst daran, bis der Ton stimmt.
 ## 10. Speicherslots und Verzweigung
 
 - **Regenerieren** = Geschwisterknoten; die alte Fassung bleibt.
-- **Bearbeiten** eines alten Turns = neuer Zweig ab dort. Fakten mit
+- **Text ändern** korrigiert einen Zug an Ort und Stelle - für Tippfehler und
+  kleine Eingriffe, ohne einen Zweig zu erzeugen.
+- **Neu erzählen lassen** an einem alten Zug = neuer Zweig ab dort. Fakten mit
   `valid_from_node` außerhalb des neuen Pfads sind dort automatisch ungültig — das
   Gedächtnis vergisst korrekt, was in der verworfenen Zeitlinie geschah.
 - **Speicherslot** = benannter Zeiger auf einen Knoten. Laden heißt: Zeiger setzen.
@@ -463,8 +465,8 @@ Jeder Meilenstein ist für sich benutzbar; nach M1 kannst du spielen.
 
 | M | Inhalt | Ergebnis |
 |---|---|---|
-| **M0** | Repo-Gerüst, arm64-Build in GitHub Actions (Image + Binary), `docker-compose.yml`, Auth, OpenRouter-Anbindung, **Routing-Test: ZDR + Venice** | Läuft auf der DS124, erreichbar vom Handy |
-| **M1** | Chat mit Streaming, Knotenbaum, Speicherslots, Regenerate/Edit/Branch, Payload-Inspektor, Kostenanzeige, Modell-Vergleich | Spielbar, und du findest dein Modell für Deutsch |
+| **M0** ✅ | Repo-Gerüst, arm64-Build in GitHub Actions (Image + Binary), `docker-compose.yml`, Auth, OpenRouter-Anbindung, **Routing-Test: ZDR + Venice** | Läuft auf der DS124, erreichbar vom Handy |
+| **M1** ✅ | Chat mit Streaming, Knotenbaum, Speicherslots, Regenerate/Edit/Branch, Payload-Inspektor, Kostenanzeige, Modell-Vergleich | Spielbar, und du findest dein Modell für Deutsch |
 | **M2** | Charakterkarten inkl. Grenzen und Antrieben, Persona, Prompt-Editor, Token-Budget, **Gefälligkeits-Detektor** | Dein System-Prompt trägt das Spiel, Gefälligkeit wird sichtbar |
 | **M3** | Zusammenfassungen, Fakten-Wiki, Hybrid-Retrieval, Lorebook | Figuren erinnern sich |
 | **M4** | Beziehungsachsen mit Deckelung, **Widerstandsbudget, Konzessionsprüfung, Antriebsdruck**, Beziehungs-Timeline | Figuren wehren sich und wollen etwas |

@@ -16,6 +16,8 @@ nicht mehr als Option geführt.
 | E9 | **In-Game-Zeit wird modelliert** | Zeitstempel an Szenen und Fakten, Beziehungsdrift über Zeit |
 | E10 | **Keine Würfel — stattdessen Autonomie-Schicht** | Gefälligkeit wird mechanisch verhindert, nicht erhofft. Siehe PLAN.md §9 |
 | E11 | **Keine Off-Screen-Simulation** (vorerst) | Stattdessen Zeitsprung-Zusammenfassung: nur bei explizitem Sprung, ein Call, 80 % des Effekts |
+| E12 | **Kleine, günstige Modelle** (Dolphin-Mistral, Gemini-Flash-Klasse) | Kosten fallen als Engpass weg, Regelbefolgung wird zum Engpass. Prompt-Diät, Regelrotation, Direktiven ans Ende — siehe PLAN.md §5.1 und §11 |
+| E13 | **Analyst als eigene Modellrolle** | Folge aus E12: Dolphin kann kein striktes JSON-Schema, die Zustandsmechanik braucht es. Erzähler erzählt, Analyst rechnet |
 
 ## Was du wörtlich gesagt hast, und was ich daraus gemacht habe
 
@@ -37,3 +39,18 @@ Mal. Deshalb bekommt es eine eigene Schicht aus vier Teilen (PLAN.md §9):
 
 Punkt 3 und 4 sind der Unterschied zwischen „ich habe es ins Prompt geschrieben"
 und „es passiert tatsächlich".
+
+---
+
+## Nachtrag zu E12: was kleine Modelle für die Autonomie-Schicht bedeuten
+
+Kleine Modelle sind **gefälliger** als große, nicht weniger. Sie folgen langen
+Regellisten schlechter, verlieren Anweisungen in der Mitte des Prompts und fallen
+schneller in Zustimmungsmuster zurück. Deine Entscheidung für die günstige Klasse
+macht §9 also nicht überflüssig — sie macht sie zum entscheidenden Teil.
+
+Der Ausgleich kommt aus der Kostenseite: Bei 0,19 Cent pro Turn ist ein
+automatischer Neuversuch bei Detektor-Befund praktisch gratis. Was bei einem
+teuren Modell eine Abwägung wäre, wird hier zur Standardeinstellung. Die
+Autonomie-Schicht kann also öfter eingreifen, als ich ursprünglich geplant hatte —
+weil sie es sich leisten kann.

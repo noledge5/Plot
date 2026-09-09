@@ -9,5 +9,6 @@ von jedem Gerät.
 
 - [Architektur- und Umsetzungsplan](docs/PLAN.md)
 - [Getroffene Entscheidungen](docs/ENTSCHEIDUNGEN.md)
+- [Modell-Auswahl](docs/modelle.md)
 - [Offene Fragen](docs/OPEN-QUESTIONS.md)
 - [Startvorlage für den System-Prompt](docs/system-prompt-vorlage.md)

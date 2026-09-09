@@ -170,6 +170,21 @@ Regeln des Builders:
 - **Wissensfilter:** `{{memories}}` und `{{characters}}` werden pro anwesender
   Figur gefiltert (§8.3).
 
+### 5.1 Prompt-Diät (Folge von E12)
+
+Kleine Modelle verlieren Anweisungen in langen Prompts — mehr Kontext heißt bei
+ihnen schlechtere Regelbefolgung, nicht bessere. Drei Regeln, die bei einem
+Spitzenmodell überflüssig wären:
+
+- **Harte Obergrenze weit unter dem Kontextfenster.** Dolphin kann 128k; der
+  Builder zielt trotzdem auf 6–8k. Der Platz ist da, die Aufmerksamkeit nicht.
+- **Regeln rotieren statt stapeln.** Nicht alle Verhaltensregeln in jedem Turn:
+  die Engine wählt die zwei, drei aus, die zur Lage passen — „Zustimmung ist
+  teuer" etwa nur, wenn tatsächlich eine Bitte im Raum steht.
+- **Direktiven ans Ende.** Bei kleinen Modellen schlägt Nähe zum Ende alles
+  andere. `{{directives}}` steht deshalb hinter dem Verlauf, und die ein, zwei
+  wichtigsten Regeln werden dort kurz wiederholt.
+
 ---
 
 ## 6. Gedächtnis
@@ -358,25 +373,62 @@ Die UI zeigt standardmäßig nur die Slot-Liste; die Baumansicht ist ein Schalte
 
 ---
 
-## 11. Modelle, Kosten, Datenschutz
+## 11. Modelle (kleine, günstige Klasse — E12)
 
-- **Erzählung:** starkes Modell. **Utility** (Extraktion, Detektor, Zusammenfassung,
-  Zeitsprung): billiges, schnelles Modell. Utility macht ~80 % der Calls aus und
-  soll <10 % der Kosten sein.
-- **Zero Data Retention erzwungen** (E7): OpenRouter routet dann nur zu Providern,
-  die Prompts und Antworten nicht speichern. Zusätzlich Provider-Allowlist pro
-  Story sowie `allow_fallbacks: false`, damit kein Fallback die Filter umgeht.
-  Prompt-Logging bei OpenRouter selbst bleibt aus, auch wenn es Rabatt gäbe.
-- **Modell-Vergleich (M1):** derselbe Prompt, zwei Modelle nebeneinander, du
-  wählst nach echtem deutschen Text. Wichtig, weil deutsche Prosaqualität zwischen
-  Modellen stärker schwankt als englische — und weil sich die Modelllage schneller
-  ändert, als ein Plan altert. Deshalb steht hier bewusst kein Modellname.
-- **Modellwechsel mitten im Spiel** ist ein Knopf, keine Einstellung: bei
-  Verweigerung oder Tonbruch wechselst du und regenerierst denselben Turn.
-- **Kostenanzeige** pro Turn, Sitzung und Story aus dem `usage`-Objekt;
-  Monatsbudget mit Warnschwelle.
+Details, Preise und die Kandidatenliste: [modelle.md](modelle.md).
+Die drei Punkte, die die Architektur betreffen:
 
----
+**Drei Rollen statt zwei.** Erzähler, **Analyst** und Reserve-Erzähler. Der
+Analyst ist eine eigene Rolle, weil Dolphin (`Venice: Uncensored`) laut
+OpenRouter-Katalog kein `structured_outputs` unterstützt — nur den einfachen
+JSON-Modus. Die ganze Zustandsmechanik aus §7 und §9 hängt aber an
+schema-validiertem JSON. Also läuft sie auf einem zweiten, sehr billigen Modell,
+und der Erzähler macht nur, was er gut kann.
+
+Wichtig dabei: der Analyst liest den erzeugten Text mit und muss ihn deshalb
+verarbeiten *dürfen*. Ein moderiertes Utility-Modell verweigert sonst genau dann,
+wenn es gebraucht wird.
+
+**Kosten sind kein Engpass mehr, Regelbefolgung ist es.** Ein Turn kostet rund
+0,19 Cent, 1.000 Turns keine zwei Euro (Rechnung in modelle.md §5). Zwei Folgen:
+Analyst-Calls dürfen großzügig laufen, und der automatische Neuversuch bei
+Detektor-Befund (§9.3) wird praktisch gratis — bei einem teuren Modell hätte ich
+davon abgeraten. Der Budget-Manager aus §5 bleibt, dient aber ab jetzt der
+Qualität, nicht dem Sparen.
+
+**Kein Prompt-Caching bei Venice und Mistral** (`supports_implicit_caching:
+false`). Die cache-freundliche Blockreihenfolge aus §5 schadet nicht und zahlt
+sich aus, sobald du auf ein cachendes Modell wechselst — aber sie ist bei dieser
+Modellwahl kein Kostenhebel. Die Kostenrechnung oben ist bereits ohne sie.
+
+### 11.1 Zielkonflikt: ZDR gegen Unzensiert
+
+Bei Mistral gibt es einen eigenen Endpoint mit dem Tag `mistral/zdr` — Zero Data
+Retention ist ein Anbietermerkmal, das explizit erfüllt sein muss. Venice hat nur
+`venice/fp16`. Mit `zdr: true` fällt Venice also vermutlich aus dem Routing, und
+Venice ist der einzige Anbieter, der Dolphin hostet: dann scheitert der Turn hart.
+
+**Erster Test in M0**, fünf Minuten mit deinem Key. Empfohlener Ausweg, falls er
+negativ ausfällt: ZDR nur für den Analysten erzwingen, beim Erzähler auf eine
+Provider-Allowlist umstellen (Venice erlauben, alles andere sperren). Siehe
+[OPEN-QUESTIONS.md Q8](OPEN-QUESTIONS.md).
+
+### 11.2 Ein Anbieter, kein Failover
+
+Dolphin läuft ausschließlich bei Venice. Deshalb ist der **Reserve-Erzähler** pro
+Story konfigurierbar: bei Ausfall oder Verweigerung wechselt die Engine auf
+Knopfdruck und regeneriert denselben Turn aus demselben Kontext. Weil der gesamte
+Zustand in SQLite liegt und nicht im Modell, kostet ein Modellwechsel mitten in
+der Kampagne nichts außer einem Stilbruch.
+
+### 11.3 Sonstiges
+
+- **Modell-Vergleich (M1):** derselbe deutsche Prompt, zwei Modelle nebeneinander.
+  Bei kleinen Modellen ist das kein Komfort, sondern notwendig — die meisten
+  Rollenspiel-Finetunes sind auf englischen Daten gemacht, und ob Dolphins
+  deutsche Prosa trägt, entscheidet sich am Text, nicht an Datenblättern.
+- **Kostenanzeige** pro Turn, Sitzung und Story aus dem `usage`-Objekt.
+- `allow_fallbacks: false`, damit kein stiller Fallback die Filter umgeht.
 
 ## 12. Betrieb auf der Synology **[Q1]**
 

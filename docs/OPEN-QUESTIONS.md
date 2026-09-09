@@ -31,6 +31,18 @@ jeden Erzähl-Turn realistisch ist oder ob der Budget-Manager von Anfang an scha
 gestellt wird. Eine Hausnummer reicht — 5 €, 20 €, 100 € sind drei sehr
 verschiedene Architekturen im Detail.
 
+### Q8 — ZDR oder Dolphin? (neu)
+
+Zero Data Retention (E7) und dein Wunschmodell schließen sich vermutlich aus:
+Dolphin läuft nur bei Venice, und Venice hat keinen ZDR-Endpoint. Details in
+[modelle.md §2](modelle.md).
+
+Ich kläre das im ersten Test in M0 mit deinem Key. Falls es sich bestätigt, ist
+meine Empfehlung: **ZDR nur für den Analysten erzwingen**, beim Erzähler auf eine
+Provider-Allowlist umstellen (nur Venice erlaubt). Sag mir, ob du das mitträgst
+oder ob ZDR für dich überall gelten muss — im zweiten Fall suchen wir ein anderes
+unzensiertes Modell.
+
 ---
 
 ## Vor M2

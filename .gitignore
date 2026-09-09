@@ -1,0 +1,12 @@
+# Gebaute Oberfläche: entsteht in GitHub Actions, nur der Platzhalter ist im Repo.
+/internal/webui/dist/*
+!/internal/webui/dist/index.html
+
+/web/node_modules/
+/web/dist/
+/plot
+/plot-linux-*
+/data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm

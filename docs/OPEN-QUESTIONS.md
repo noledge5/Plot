@@ -5,43 +5,15 @@ Hier steht nur noch, was fehlt.
 
 ---
 
-## Blockiert den Start
+## Beantwortet
 
-### Q1 — Welches NAS-Modell genau?
+- **Q1 Hardware:** DS124, 1 GB RAM, DSM 7.3.2, Tailscale eingerichtet → E14, E15.
+  Kein Docker; Betriebskonzept in [BETRIEB-DS124.md](BETRIEB-DS124.md).
+- **Q2 Budget:** erledigt. Bei rund 0,19 Cent pro Turn (modelle.md §5) ist Geld
+  kein Engpass mehr.
+- **Q8 ZDR:** ZDR für den Analysten, Provider-Allowlist für den Erzähler → E16.
 
-Ich brauche: **Modellnummer, RAM, DSM-Version.**
-Zu finden unter DSM → Systemsteuerung → Info-Center → Allgemein.
-
-Warum es blockiert: Container Manager gibt es nicht auf jedem Synology-Modell,
-und die CPU-Architektur entscheidet über das Docker-Image. Ich baue zwar
-Multi-Arch, aber wenn dein Modell gar kein Docker kann, brauchen wir einen
-anderen Weg — dann läuft es über den DSM-Aufgabenplaner oder auf einem anderen
-Gerät im Netz.
-
-Zweite Hälfte davon: **Zugang von unterwegs — Tailscale oder eigene Domain?**
-Tailscale ist sicherer und in zehn Minuten eingerichtet, verlangt aber die App auf
-jedem Gerät. Reverse Proxy mit Subdomain ist bequemer, exponiert aber einen Dienst
-ins Internet; dann brauche ich von Tag eins Rate-Limiting und härteres
-Session-Handling. Meine Empfehlung ist Tailscale.
-
-### Q2 — Budget
-
-Größenordnung pro Monat für OpenRouter? Davon hängt ab, ob ein Spitzenmodell für
-jeden Erzähl-Turn realistisch ist oder ob der Budget-Manager von Anfang an scharf
-gestellt wird. Eine Hausnummer reicht — 5 €, 20 €, 100 € sind drei sehr
-verschiedene Architekturen im Detail.
-
-### Q8 — ZDR oder Dolphin? (neu)
-
-Zero Data Retention (E7) und dein Wunschmodell schließen sich vermutlich aus:
-Dolphin läuft nur bei Venice, und Venice hat keinen ZDR-Endpoint. Details in
-[modelle.md §2](modelle.md).
-
-Ich kläre das im ersten Test in M0 mit deinem Key. Falls es sich bestätigt, ist
-meine Empfehlung: **ZDR nur für den Analysten erzwingen**, beim Erzähler auf eine
-Provider-Allowlist umstellen (nur Venice erlaubt). Sag mir, ob du das mitträgst
-oder ob ZDR für dich überall gelten muss — im zweiten Fall suchen wir ein anderes
-unzensiertes Modell.
+---
 
 ---
 

@@ -1,8 +1,8 @@
 # Plot — Architektur- und Umsetzungsplan
 
 Lokale Rollenspiel-Engine mit eigenem System-Prompt, Charakterkarten, Beziehungs-
-und Gedächtnismechanik. Läuft als ein Docker-Container auf einer Synology NAS,
-bedienbar von jedem Gerät (Browser/PWA).
+und Gedächtnismechanik. Läuft als ein einzelnes Binary auf einer Synology DS124,
+bedienbar von jedem Gerät im Tailnet (Browser/PWA).
 
 Getroffene Entscheidungen: [ENTSCHEIDUNGEN.md](ENTSCHEIDUNGEN.md) ·
 Noch offen: [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) ·
@@ -34,38 +34,41 @@ Prompt-Startvorlage: [system-prompt-vorlage.md](system-prompt-vorlage.md)
             │  HTTPS (Tailscale oder DSM Reverse Proxy)
             ▼
    ┌─────────────────────────────────────────────┐
-   │  Docker-Container auf der Synology NAS      │
+   │  ein Go-Binary auf der Synology DS124        │
    │                                             │
-   │   React-PWA  ──►  API (FastAPI)             │
+   │   React-PWA  ──►  API (eingebettet)          │
    │                     │                       │
    │                     ├─ Prompt-Builder ──────┼──► OpenRouter
    │                     ├─ Autonomie-Schicht    │     /chat/completions (Erzählung)
    │                     ├─ State-Extractor      │     /chat/completions (Utility)
    │                     ├─ Memory-Indexer       │     /embeddings
    │                     ▼                       │
-   │                  SQLite (WAL)               │
-   │                  + FTS5 + sqlite-vec        │
+   │                  SQLite (WAL) + FTS5        │
    └─────────────────────────────────────────────┘
                          │
-                  /data  Volume  ──► Hyper Backup
+            /volume1/plot ──► Hyper Backup
 ```
 
-Ein Prozess, eine Datei, ein Volume. Kein Zustand außerhalb von `/data`.
+Ein Prozess, eine Datei, ein Ordner. Kein Zustand außerhalb von `/volume1/plot`.
 
 Weil du nicht selbst im Code arbeitest (E2), gilt zusätzlich: **jede Einstellung
 ist in der Oberfläche erreichbar** — Modelle, Provider-Filter, Budgets, Prompts,
 Schwellenwerte der Autonomie-Schicht. Die einzige Datei, die du je anfassen musst,
-ist die `.env` mit dem OpenRouter-Key bei der Erstinstallation.
+trägst du in der Weboberfläche ein: den OpenRouter-Key beim ersten Start.
 
 ---
 
 ## 3. Stack
 
-- **Backend:** Python 3.12, FastAPI, `httpx` (SSE-Streaming), SQLite via SQLModel.
-- **Frontend:** React + Vite + TypeScript + Tailwind, als statisches Bundle vom
-  Backend ausgeliefert, PWA-Manifest für „Zum Homescreen".
-- **DB:** SQLite im WAL-Modus. FTS5 für Stichwortsuche, `sqlite-vec` für Vektoren.
-  Beides in derselben Datei — ein Backup sichert alles.
+- **Backend:** Go, ein einzelnes statisches Binary für arm64. Kein Docker, keine
+  Laufzeitumgebung, keine Abhängigkeiten auf dem Zielgerät — die Ziel-NAS (DS124)
+  unterstützt Container Manager nicht und hat 1 GB RAM. Begründung und
+  Installationsweg: [BETRIEB-DS124.md](BETRIEB-DS124.md).
+- **Frontend:** React + Vite + TypeScript + Tailwind, in GitHub Actions gebaut und
+  per `embed.FS` ins Binary eingebettet. PWA-Manifest für „Zum Homescreen".
+  Auf der NAS läuft nie ein Build.
+- **DB:** SQLite im WAL-Modus, FTS5 für Stichwortsuche. Vektoren (`sqlite-vec`)
+  erst ab M3 und nur, wenn BM25 nachweislich nicht reicht.
 
 ---
 
@@ -430,21 +433,25 @@ der Kampagne nichts außer einem Stilbruch.
 - **Kostenanzeige** pro Turn, Sitzung und Story aus dem `usage`-Objekt.
 - `allow_fallbacks: false`, damit kein stiller Fallback die Filter umgeht.
 
-## 12. Betrieb auf der Synology **[Q1]**
+## 12. Betrieb auf der DS124
 
-- **Image:** Multi-Arch (amd64 + arm64), `docker-compose.yml`, ein Volume `/data`.
-  Installation über Container Manager (DSM 7.2+). Container Manager gibt es nicht
-  auf allen Modellen — überwiegend x86/Plus-Serie und einige ARM-Modelle.
-- **Zugriff von unterwegs:** **Tailscale** (Paket im Synology Package Center) ist
-  die empfohlene Variante — kein offener Port, kein Zertifikatsgefummel, App für
-  iOS/Android. Alternative: DSM Reverse Proxy mit Subdomain und Let's Encrypt.
-  **Kein Port-Forwarding auf den Container ohne Auth.**
-- **Auth:** Passwort (argon2) + Session-Cookie, optional TOTP. Der OpenRouter-Key
-  liegt ausschließlich serverseitig, nie im Frontend-Bundle.
-- **Backup:** Hyper Backup auf `/data`, plus App-eigener Story-Export. SQLite
-  vorher per `VACUUM INTO` konsistent wegschreiben.
-- **Ressourcen:** Das Backend ist I/O-lastig, nicht CPU-lastig — Embeddings laufen
-  extern (E3). Ein kleines Plus-Modell langweilt sich dabei.
+Ausführlich in [BETRIEB-DS124.md](BETRIEB-DS124.md). Die Eckpunkte:
+
+- **Kein Docker.** Container Manager verlangt Intel oder AMD; die DS124 hat einen
+  Realtek RTD1619B. Stattdessen ein statisches arm64-Binary, das per File Station
+  hochgeladen und im DSM-Aufgabenplaner als Autostart eingetragen wird. Kein SSH,
+  kein Terminal, kein Paketmanager — Updates heißen „Datei ersetzen".
+- **1 GB RAM, nicht erweiterbar.** Deshalb Go statt Python (~25–50 MB statt
+  ~100–150 MB), Frontend vorgebaut und eingebettet, keine lokalen Modelle.
+- **Zugriff über Tailscale**, das bereits eingerichtet ist. Der Tailnet-Verkehr ist
+  über WireGuard verschlüsselt, also kein Reverse Proxy und kein Zertifikat nötig.
+  Der App-Login bleibt trotzdem drin.
+- **Auslegung:** ein Nutzer, eine Session gleichzeitig. Die Antwortzeit bestimmt
+  das Modell, nicht die NAS — dieses Programm wartet die meiste Zeit auf
+  OpenRouter.
+- **Umzugspfad:** dasselbe Binary läuft ohne Änderung auf einem Raspberry Pi oder
+  Mini-PC, die SQLite-Datei wandert einfach mit. Erst nötig, wenn die DS124
+  tatsächlich bremst.
 
 ---
 
@@ -454,7 +461,7 @@ Jeder Meilenstein ist für sich benutzbar; nach M1 kannst du spielen.
 
 | M | Inhalt | Ergebnis |
 |---|---|---|
-| **M0** | Repo-Gerüst, Docker-Image, Auth, OpenRouter-Anbindung, Modellwahl mit ZDR-Filter | Läuft auf der NAS, erreichbar vom Handy |
+| **M0** | Repo-Gerüst, arm64-Build in GitHub Actions, Autostart-Einrichtung, Auth, OpenRouter-Anbindung, **Routing-Test: ZDR + Venice** | Läuft auf der DS124, erreichbar vom Handy |
 | **M1** | Chat mit Streaming, Knotenbaum, Speicherslots, Regenerate/Edit/Branch, Payload-Inspektor, Kostenanzeige, Modell-Vergleich | Spielbar, und du findest dein Modell für Deutsch |
 | **M2** | Charakterkarten inkl. Grenzen und Antrieben, Persona, Prompt-Editor, Token-Budget, **Gefälligkeits-Detektor** | Dein System-Prompt trägt das Spiel, Gefälligkeit wird sichtbar |
 | **M3** | Zusammenfassungen, Fakten-Wiki, Hybrid-Retrieval, Lorebook | Figuren erinnern sich |
@@ -475,4 +482,5 @@ Jeder Meilenstein ist für sich benutzbar; nach M1 kannst du spielen.
 | Kosten laufen bei langen Kampagnen weg | Budget-Manager, Caching, Utility-Routing, Monatslimit |
 | Extraktor halluziniert Fakten | Provenance und Zitat bei jedem Fakt, `proposed`-Warteschlange, alles editierbar |
 | Utility-Calls verdreifachen die Latenz | Detektor und Extraktion laufen **nach** dem Streaming, asynchron; du wartest nie auf sie |
+| DS124 wird zu langsam oder der Speicher zu knapp | Dasselbe Binary läuft unverändert auf einem Pi oder Mini-PC; die SQLite-Datei zieht mit um |
 | Ein-Personen-Projekt schläft ein | Meilensteine einzeln nutzbar; nur das Datenmodell muss von Anfang an stimmen |

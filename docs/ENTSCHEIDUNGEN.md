@@ -6,7 +6,7 @@ nicht mehr als Option geführt.
 | # | Entscheidung | Konsequenz |
 |---|---|---|
 | E1 | **Eigenbau**, kein SillyTavern-Aufsatz | Beziehungs-, Wissens- und Autonomie-Mechanik lassen sich nur so bauen |
-| E2 | **Python/FastAPI + React**, du codest nicht mit | Alles muss über die Oberfläche konfigurierbar sein — keine YAML-Handarbeit, kein SSH für den Alltag |
+| E2 | ~~Python/FastAPI~~ → **Go, ein statisches arm64-Binary** + React | Revidiert nach dem Hardware-Befund (E14). Alles bleibt über die Oberfläche konfigurierbar — kein SSH, keine Konfigdateien von Hand |
 | E3 | **Embeddings über OpenRouter** | Ein Key, eine Rechnung, keine CPU-Last auf der NAS; Provider-Filter gilt auch hier |
 | E4 | **Slots und Baum**, Baum optional sichtbar | Turn-Baum als Fundament, schlichte Slot-UI darüber |
 | E5 | **Spielleiter erzählt alles außer deiner Figur** | Harte Prompt-Regel *und* automatische Nachprüfung, die Verstöße markiert |
@@ -18,6 +18,10 @@ nicht mehr als Option geführt.
 | E11 | **Keine Off-Screen-Simulation** (vorerst) | Stattdessen Zeitsprung-Zusammenfassung: nur bei explizitem Sprung, ein Call, 80 % des Effekts |
 | E12 | **Kleine, günstige Modelle** (Dolphin-Mistral, Gemini-Flash-Klasse) | Kosten fallen als Engpass weg, Regelbefolgung wird zum Engpass. Prompt-Diät, Regelrotation, Direktiven ans Ende — siehe PLAN.md §5.1 und §11 |
 | E13 | **Analyst als eigene Modellrolle** | Folge aus E12: Dolphin kann kein striktes JSON-Schema, die Zustandsmechanik braucht es. Erzähler erzählt, Analyst rechnet |
+| E14 | **Zielgerät ist die DS124: kein Docker, 1 GB RAM, arm64** | Container Manager gibt es dort nicht. Ein Binary statt eines Containers, Go statt Python, Frontend vorgebaut und eingebettet. Siehe BETRIEB-DS124.md |
+| E15 | **Zugriff über Tailscale, ohne Reverse Proxy** | WireGuard verschlüsselt bereits; kein Zertifikat nötig. App-Login bleibt trotzdem |
+| E16 | **ZDR nur für den Analysten, Erzähler über Provider-Allowlist** | Löst den Konflikt aus modelle.md §2: Venice bleibt für die Erzählung erlaubt, alle anderen Anbieter gesperrt |
+| E17 | **Retrieval startet mit FTS5, Vektoren erst bei Bedarf** | Folge aus E14: `sqlite-vec` als arm64-Modul ist Mehraufwand, den BM25 auf dieser Hardware vermutlich erspart. Entscheidung fällt in M3 |
 
 ## Was du wörtlich gesagt hast, und was ich daraus gemacht habe
 

@@ -2,6 +2,9 @@ name: Veröffentlichen
 
 on:
   push:
+    # Jeder Merge nach main veröffentlicht ein neues :latest. Damit genügt
+    # zum Ausrollen ein Merge - und auf der NAS der Update-Befehl.
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
 

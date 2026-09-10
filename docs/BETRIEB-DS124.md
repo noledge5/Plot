@@ -75,8 +75,25 @@ Public), oder du hinterlegst im Container Manager unter Registrierung →
 Einstellungen ein Konto für `ghcr.io` mit einem Zugriffstoken. Danach: Projekt
 anlegen mit der `docker-compose.yml` aus dem Repo.
 
-**Aktualisieren:** neues Abbild importieren beziehungsweise Projekt neu
-erstellen; der Datenordner bleibt unangetastet, die Datenbank überlebt.
+### Aktualisieren
+
+Jeder Merge nach main veröffentlicht ein neues `:latest`. Auf der NAS holt es
+[`scripts/update-synology.sh`](../scripts/update-synology.sh) ab:
+
+1. Skript per File Station nach `/volume1/docker/plot/` legen.
+2. Systemsteuerung → Aufgabenplaner → Erstellen → **Geplante Aufgabe** →
+   Benutzerdefiniertes Skript, Benutzer `root`, im Skriptfeld:
+   ```sh
+   sh /volume1/docker/plot/update-synology.sh
+   ```
+3. Zeitplan nach Geschmack (etwa nachts) — oder ohne Zeitplan anlegen und die
+   Aufgabe bei Bedarf über „Ausführen" auslösen.
+
+Das Skript holt das Abbild, startet den Container nur dann neu, wenn sich
+tatsächlich etwas geändert hat, räumt abgelöste Abbilder weg und schreibt nach
+`/volume1/docker/plot/update.log`. Findet es die Compose-Datei des Projekts,
+benutzt es sie; sonst startet es den Container direkt neu. Der Datenordner
+bleibt unangetastet, die Datenbank überlebt jedes Update.
 
 ## Weg B: als Binary, ohne Docker
 

@@ -2,7 +2,9 @@ name: Prüfen
 
 on:
   push:
-    branches: ["**"]
+    # main übernimmt der Veröffentlichungs-Ablauf, der dieselben Prüfungen
+    # ausführt - sonst liefe beides doppelt.
+    branches-ignore: [main]
   pull_request:
 
 jobs:

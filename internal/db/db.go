@@ -119,6 +119,23 @@ CREATE TABLE run_log (
 CREATE INDEX idx_runlog_story ON run_log(story_id);
 CREATE INDEX idx_runlog_node  ON run_log(node_id);
 `,
+	// M2: Figuren mit Grenzen und Antrieben als eigene Felder. Die
+	// Autonomie-Schicht braucht sie strukturiert, nicht als Prosa im Blatt -
+	// Fließtext wird vom Modell überlesen, eine Liste nicht.
+	`
+CREATE TABLE character (
+	id         INTEGER PRIMARY KEY,
+	story_id   INTEGER NOT NULL REFERENCES story(id) ON DELETE CASCADE,
+	rolle      TEXT NOT NULL DEFAULT 'npc',  -- npc | persona (die Figur des Spielers)
+	name       TEXT NOT NULL,
+	sheet_json TEXT NOT NULL DEFAULT '{}',
+	aktiv      INTEGER NOT NULL DEFAULT 1,   -- steht diese Figur gerade in der Szene?
+	sortierung INTEGER NOT NULL DEFAULT 0,
+	created_at TEXT NOT NULL,
+	updated_at TEXT NOT NULL
+);
+CREATE INDEX idx_character_story ON character(story_id);
+`,
 }
 
 func (d *DB) migrate() error {

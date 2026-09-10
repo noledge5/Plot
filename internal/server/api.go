@@ -19,7 +19,28 @@ Du erzählst niemals die Figur des Spielers: Du schreibst ihr keine Worte,
 keine Gedanken und keine Handlungen zu. Wo der Spieler handeln müsste, hörst
 du auf - auch mitten in einer Bewegung.
 
-Regeln für die Figuren:
+## Die Figur des Spielers
+
+{{persona}}
+
+## Die Figuren in der Szene
+
+{{characters}}
+
+## Was für sie gilt
+
+{{limits}}
+
+{{drives}}
+
+## Welt und Szene
+
+{{welt}}
+
+{{szene}}
+
+## Regeln für die Figuren
+
 1. Jede Figur will etwas Eigenes und verfolgt es, oder sie hat einen Grund,
    es gerade nicht zu tun.
 2. Zustimmung ist teuer. Niemand gibt nach, weil der Spieler freundlich fragt.
@@ -30,8 +51,19 @@ Regeln für die Figuren:
 6. Was eine Figur nicht weiß, weiß sie nicht. Sie rät oder fragt nach.
 7. Nicht jede Szene bringt die Handlung voran. Gespräche dürfen ins Leere laufen.
 
+## Ton
+
 Erzählzeit Präteritum, dritte Person. Zeige, was geschieht; erkläre nicht,
-was es bedeutet.`
+was es bedeutet.
+
+{{stilbeispiel}}
+
+## Für diesen Zug
+
+{{directives}}
+
+{{autornotiz}}
+`
 
 func (s *Server) handleListStories(w http.ResponseWriter, r *http.Request) {
 	st, err := s.db.Stories()
@@ -77,7 +109,7 @@ func (s *Server) handleGetStory(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Geschichte nicht lesbar")
 		return
 	}
-	writeJSON(w, http.StatusOK, st)
+	writeJSON(w, http.StatusOK, antwortFuer(st))
 }
 
 func (s *Server) handleUpdateStory(w http.ResponseWriter, r *http.Request) {
@@ -92,9 +124,9 @@ func (s *Server) handleUpdateStory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Titel        *string `json:"titel"`
-		SystemPrompt *string `json:"systemPrompt"`
-		Settings     *string `json:"settings"`
+		Titel        *string        `json:"titel"`
+		SystemPrompt *string        `json:"systemPrompt"`
+		Settings     *StorySettings `json:"settings"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 		writeError(w, http.StatusBadRequest, "Anfrage nicht lesbar")
@@ -108,14 +140,19 @@ func (s *Server) handleUpdateStory(w http.ResponseWriter, r *http.Request) {
 		prompt = *in.SystemPrompt
 	}
 	if in.Settings != nil {
-		settings = *in.Settings
+		roh, err := json.Marshal(*in.Settings)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "Einstellungen nicht lesbar")
+			return
+		}
+		settings = string(roh)
 	}
 	if err := s.db.UpdateStory(id, titel, prompt, settings); err != nil {
 		writeError(w, http.StatusInternalServerError, "Änderung nicht speicherbar")
 		return
 	}
 	st, _ := s.db.Story(id)
-	writeJSON(w, http.StatusOK, st)
+	writeJSON(w, http.StatusOK, antwortFuer(st))
 }
 
 func (s *Server) handleDeleteStory(w http.ResponseWriter, r *http.Request) {
@@ -154,7 +191,7 @@ func (s *Server) handlePath(w http.ResponseWriter, r *http.Request) {
 	}
 	kosten, aufrufe, _ := s.db.Costs(id)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"story":   st,
+		"story":   antwortFuer(st),
 		"knoten":  knoten,
 		"kosten":  kosten,
 		"aufrufe": aufrufe,
@@ -239,7 +276,13 @@ func (s *Server) handleInspect(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Protokoll nicht lesbar")
 		return
 	}
-	writeJSON(w, http.StatusOK, run)
+	// Die weiteren Aufrufe am selben Knoten - vor allem die Prüfung - kommen
+	// mit, damit im Inspektor nachvollziehbar ist, worauf ein Befund beruht.
+	weitere, _ := s.db.RunsForNode(id)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"erzaehlung": run,
+		"alle":       weitere,
+	})
 }
 
 // --- Speicherstände ---

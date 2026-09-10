@@ -191,12 +191,35 @@ type Provider struct {
 }
 
 type ChatRequest struct {
-	Model       string    `json:"model"`
-	Messages    []Message `json:"messages"`
-	Stream      bool      `json:"stream,omitempty"`
-	MaxTokens   int       `json:"max_tokens,omitempty"`
-	Temperature *float64  `json:"temperature,omitempty"`
-	Provider    *Provider `json:"provider,omitempty"`
+	Model     string    `json:"model"`
+	Messages  []Message `json:"messages"`
+	Stream    bool      `json:"stream,omitempty"`
+	MaxTokens int       `json:"max_tokens,omitempty"`
+	// Temperature ist ein Zeiger, damit 0 (völlig unkreativ) sich von
+	// "nicht gesetzt" unterscheidet - Auswertungsaufrufe wollen die 0.
+	Temperature    *float64        `json:"temperature,omitempty"`
+	Provider       *Provider       `json:"provider,omitempty"`
+	ResponseFormat *ResponseFormat `json:"response_format,omitempty"`
+}
+
+// ResponseFormat verlangt eine schema-validierte Antwort. Nicht jedes Modell
+// kann das: der Katalog führt es als "structured_outputs" (siehe ModelInfo).
+type ResponseFormat struct {
+	Type       string      `json:"type"` // "json_schema"
+	JSONSchema *JSONSchema `json:"json_schema,omitempty"`
+}
+
+type JSONSchema struct {
+	Name   string `json:"name"`
+	Strict bool   `json:"strict"`
+	Schema any    `json:"schema"`
+}
+
+// JSONAntwort baut das Format für einen Auswertungsaufruf.
+func JSONAntwort(name string, schema any) *ResponseFormat {
+	return &ResponseFormat{Type: "json_schema", JSONSchema: &JSONSchema{
+		Name: name, Strict: true, Schema: schema,
+	}}
 }
 
 type Usage struct {

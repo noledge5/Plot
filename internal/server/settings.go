@@ -27,6 +27,9 @@ type Settings struct {
 	MaxHistoryTurns int     `json:"maxHistoryTurns"`
 	MaxTokens       int     `json:"maxTokens"`
 	Temperature     float64 `json:"temperature"`
+	// DetektorAn schaltet die Prüfung auf Gefälligkeit ein. Sie läuft nach
+	// dem Streaming und kostet rund ein Hundertstel Cent je Zug.
+	DetektorAn bool `json:"detektorAn"`
 }
 
 func defaultSettings() Settings {
@@ -40,6 +43,7 @@ func defaultSettings() Settings {
 		MaxHistoryTurns:   20,
 		MaxTokens:         1200,
 		Temperature:       0.9,
+		DetektorAn:        true,
 	}
 }
 

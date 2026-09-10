@@ -15,7 +15,7 @@ type Story struct {
 	ID           int64  `json:"id"`
 	Title        string `json:"title"`
 	SystemPrompt string `json:"systemPrompt"`
-	SettingsJSON string `json:"settings"`
+	SettingsJSON string `json:"-"`
 	HeadNodeID   *int64 `json:"headNodeId"`
 	CreatedAt    string `json:"createdAt"`
 	UpdatedAt    string `json:"updatedAt"`
@@ -281,17 +281,40 @@ func (d *DB) LogRun(storyID int64, nodeID *int64, purpose, model, request, respo
 	return res.LastInsertId()
 }
 
-// RunForNode liefert das Protokoll zu einem Knoten - die Grundlage des
-// Payload-Inspektors.
+// RunForNode liefert den Erzählaufruf zu einem Knoten - die Grundlage des
+// Payload-Inspektors. Ausdrücklich nach Zweck gefiltert: an einem Knoten
+// hängen auch Auswertungsaufrufe, und der jüngste ist selten der gesuchte.
 func (d *DB) RunForNode(nodeID int64) (*RunLog, error) {
 	var r RunLog
 	err := d.QueryRow(`SELECT id, node_id, purpose, model, request_json, response_json, cost_usd, latency_ms, error, created_at
-	                   FROM run_log WHERE node_id = ? ORDER BY id DESC LIMIT 1`, nodeID).
+	                   FROM run_log WHERE node_id = ? AND purpose = 'narrate'
+	                   ORDER BY id DESC LIMIT 1`, nodeID).
 		Scan(&r.ID, &r.NodeID, &r.Purpose, &r.Model, &r.Request, &r.Response, &r.CostUSD, &r.LatencyMS, &r.Error, &r.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	return &r, err
+}
+
+// RunsForNode liefert alle Aufrufe zu einem Knoten, jüngste zuerst - für den
+// Inspektor, der neben der Erzählung auch die Prüfung zeigen soll.
+func (d *DB) RunsForNode(nodeID int64) ([]RunLog, error) {
+	rows, err := d.Query(`SELECT id, node_id, purpose, model, request_json, response_json, cost_usd, latency_ms, error, created_at
+	                      FROM run_log WHERE node_id = ? ORDER BY id DESC`, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []RunLog{}
+	for rows.Next() {
+		var r RunLog
+		if err := rows.Scan(&r.ID, &r.NodeID, &r.Purpose, &r.Model, &r.Request, &r.Response,
+			&r.CostUSD, &r.LatencyMS, &r.Error, &r.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }
 
 // Costs summiert die Kosten einer Story - für die Anzeige "was hat diese

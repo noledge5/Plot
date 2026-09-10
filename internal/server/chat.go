@@ -12,6 +12,15 @@ import (
 	"github.com/noledge5/plot/internal/openrouter"
 )
 
+// verschaerfung ist die Direktive hinter "nochmal, härter". Sie beschreibt,
+// was zu tun ist, statt zu verbieten - positive Anweisungen werden von kleinen
+// Modellen zuverlässiger befolgt als Verbote.
+const verschaerfung = `Für diesen Zug gilt zusätzlich: Die Figur gibt nicht nach. ` +
+	`Sie hat einen eigenen Grund, warum nicht, und sie benennt ihn. ` +
+	`Sie spiegelt die Stimmung des Spielers nicht, lobt ihn nicht und ` +
+	`beantwortet keine heikle Frage bereitwillig. Wenn sie etwas will, ` +
+	`bringt sie es jetzt zur Sprache.`
+
 // autosaveAlle legt in diesem Abstand einen automatischen Speicherstand an,
 // autosaveBehalten begrenzt, wie viele davon aufgehoben werden.
 const (
@@ -56,7 +65,7 @@ func (s *sse) sende(event string, daten any) {
 // Verbrauch und Protokoll sichern. Der Knoten entsteht auch dann, wenn der
 // Nutzer abbricht - der Text bis dahin bleibt erhalten.
 func (s *Server) erzaehlung(ctx context.Context, st *db.Story, elternID *int64, modell string,
-	set Settings, onDelta func(string)) (*db.Node, *openrouter.Result, error) {
+	set Settings, direktiven []string, onDelta func(string)) (*db.Node, *openrouter.Result, error) {
 
 	c, err := s.client()
 	if err != nil {
@@ -70,7 +79,17 @@ func (s *Server) erzaehlung(ctx context.Context, st *db.Story, elternID *int64, 
 			return nil, nil, fmt.Errorf("Verlauf lesen: %w", err)
 		}
 	}
-	msgs, abgeschnitten := baueNachrichten(st, pfad, set.MaxHistoryTurns)
+
+	// Figuren, Grenzen und Antriebe werden in die Vorlage des Nutzers
+	// eingesetzt - die Engine hängt nichts an, was nicht als Platzhalter
+	// dort steht.
+	storySet := storySettings(st)
+	persona, npcs, err := s.db.Anwesende(st.ID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Figuren lesen: %w", err)
+	}
+	system, bloecke := baueSystemPrompt(st.SystemPrompt, promptWerte(st, storySet, persona, npcs, direktiven))
+	msgs, abgeschnitten := baueNachrichten(system, pfad, set.MaxHistoryTurns)
 
 	temp := set.Temperature
 	anfrage := openrouter.ChatRequest{
@@ -84,8 +103,9 @@ func (s *Server) erzaehlung(ctx context.Context, st *db.Story, elternID *int64, 
 	// nie klären, ob eine schwache Antwort am Modell oder am Prompt lag.
 	roh, _ := json.MarshalIndent(struct {
 		openrouter.ChatRequest
-		Abgeschnitten int `json:"_abgeschnitteneZuege"`
-	}{anfrage, abgeschnitten}, "", "  ")
+		Abgeschnitten int     `json:"_abgeschnitteneZuege"`
+		Bloecke       []Block `json:"_bloecke"`
+	}{anfrage, abgeschnitten, bloecke}, "", "  ")
 
 	res, streamErr := c.Stream(ctx, anfrage, onDelta)
 	if res == nil {
@@ -160,7 +180,7 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 		strom.sende("eingabe", map[string]any{"nodeId": *eltern})
 	}
 
-	knoten, res, err := s.erzaehlung(r.Context(), st, eltern, modell, set,
+	knoten, res, err := s.erzaehlung(r.Context(), st, eltern, modell, set, nil,
 		func(t string) { strom.sende("delta", map[string]any{"text": t}) })
 	if err != nil {
 		strom.sende("fehler", map[string]any{"fehler": err.Error()})
@@ -173,6 +193,20 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 		"nodeId": knoten.ID, "modell": res.Model, "anbieter": res.Provider,
 		"usage": res.Usage, "kostenGesamt": kosten, "aufrufe": aufrufe,
 	})
+
+	// Erst der Text, dann die Prüfung: der Leser soll nicht auf den Analysten
+	// warten. Die Verbindung steht noch, also kommt der Befund nach.
+	s.pruefungNachreichen(strom, st, knoten, set)
+}
+
+// pruefungNachreichen lässt den Detektor laufen und schickt das Ergebnis über
+// dieselbe Verbindung nach.
+func (s *Server) pruefungNachreichen(strom *sse, st *db.Story, knoten *db.Node, set Settings) {
+	if !set.DetektorAn || strings.TrimSpace(set.AnalystModel) == "" {
+		return
+	}
+	flags := s.detektorLauf(st, knoten, set)
+	strom.sende("befunde", map[string]any{"nodeId": knoten.ID, "flags": flags})
 }
 
 // handleRegenerate erzeugt eine weitere Fassung desselben Zuges. Die bisherige
@@ -186,6 +220,9 @@ func (s *Server) handleRegenerate(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		NodeID int64  `json:"nodeId"`
 		Modell string `json:"modell"`
+		// Haerter setzt eine Direktive gegen Gefälligkeit in den Prompt -
+		// der Knopf am Befund des Detektors.
+		Haerter bool `json:"haerter"`
 	}
 	json.NewDecoder(r.Body).Decode(&in)
 
@@ -218,8 +255,13 @@ func (s *Server) handleRegenerate(w http.ResponseWriter, r *http.Request) {
 		modell = in.Modell // erlaubt den Wechsel auf das Reservemodell
 	}
 
+	var direktiven []string
+	if in.Haerter {
+		direktiven = append(direktiven, verschaerfung)
+	}
+
 	strom := neuesSSE(w)
-	knoten, res, err := s.erzaehlung(r.Context(), st, alt.ParentID, modell, set,
+	knoten, res, err := s.erzaehlung(r.Context(), st, alt.ParentID, modell, set, direktiven,
 		func(t string) { strom.sende("delta", map[string]any{"text": t}) })
 	if err != nil {
 		strom.sende("fehler", map[string]any{"fehler": err.Error()})
@@ -230,6 +272,7 @@ func (s *Server) handleRegenerate(w http.ResponseWriter, r *http.Request) {
 		"nodeId": knoten.ID, "ersetzt": alt.ID, "modell": res.Model, "anbieter": res.Provider,
 		"usage": res.Usage, "kostenGesamt": kosten, "aufrufe": aufrufe,
 	})
+	s.pruefungNachreichen(strom, st, knoten, set)
 }
 
 // handleCompare stellt zwei Modelle nebeneinander: derselbe Prompt, zwei
@@ -304,7 +347,7 @@ func (s *Server) handleCompare(w http.ResponseWriter, r *http.Request) {
 	var wg sync.WaitGroup
 	lauf := func(seite, modell string) {
 		defer wg.Done()
-		knoten, res, err := s.erzaehlung(r.Context(), st, eltern, modell, set,
+		knoten, res, err := s.erzaehlung(r.Context(), st, eltern, modell, set, nil,
 			func(t string) { strom.sende("delta", map[string]any{"seite": seite, "text": t}) })
 		if err != nil {
 			strom.sende("fehler", map[string]any{"seite": seite, "fehler": err.Error()})

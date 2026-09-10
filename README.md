@@ -5,9 +5,11 @@ mit eigenem System-Prompt, Beziehungsmechanik, dauerhaftem Gedächtnis und
 Speicherständen. Ein Binary, eine SQLite-Datei, erreichbar von jedem Gerät im
 Tailnet.
 
-**Stand: M0 und M1 sind fertig.** Spielbar mit Streaming, Turn-Baum,
-Speicherständen, Payload-Inspektor, Kostenanzeige und Modellvergleich.
-Charakterkarten, Gedächtnis und die Autonomie-Schicht folgen in M2–M5.
+**Stand: M0 bis M2 sind fertig.** Spielbar mit Streaming, Turn-Baum,
+Speicherständen, Payload-Inspektor, Kostenanzeige und Modellvergleich; dazu
+Charakterkarten mit Grenzen und Antrieben, ein Prompt-Editor mit Platzhaltern
+und der Gefälligkeits-Detektor. Gedächtnis und die restliche Autonomie-Schicht
+folgen in M3–M5.
 
 ## Installation auf der Synology
 
@@ -43,6 +45,21 @@ die Oberfläche nie.
 - **Routing-Prüfung.** Ein Aufruf über ein einziges Token je Rolle zeigt, welcher
   Anbieter tatsächlich bedient — oder warum keiner die Bedingungen erfüllt.
 - **Kostenanzeige** pro Geschichte, aus dem `usage`-Objekt der Antwort.
+
+## Was M2 dazugelegt hat
+
+- **Charakterkarten** mit Grenzen und Antrieben als eigene Felder: was eine
+  Figur niemals tut, was sie erst ab einer Schwelle preisgibt, was sie übel
+  nimmt, und was sie von sich aus will. Steigt der Antriebsdruck über die
+  Schwelle, bringt sie es aktiv zur Sprache.
+- **Prompt-Editor mit Platzhaltern** — `{{characters}}`, `{{limits}}`,
+  `{{drives}}`, `{{stilbeispiel}}` und weitere. Die Vorschau zeigt den fertigen
+  Prompt samt Tokenschätzung je Block, bevor ein Zug ihn verbraucht.
+- **Stilbeispiel:** ein, zwei Absätze im gewünschten Ton. Kleine Modelle
+  imitieren Stil deutlich besser, als sie Stilanweisungen befolgen.
+- **Gefälligkeits-Detektor:** prüft jede Antwort gegen sieben Muster und hängt
+  Befunde mit Zitat an den Zug, samt „nochmal, härter". Markiert wird, nicht
+  verworfen.
 
 ## Dokumentation
 

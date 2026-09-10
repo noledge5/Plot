@@ -467,7 +467,7 @@ Jeder Meilenstein ist für sich benutzbar; nach M1 kannst du spielen.
 |---|---|---|
 | **M0** ✅ | Repo-Gerüst, arm64-Build in GitHub Actions (Image + Binary), `docker-compose.yml`, Auth, OpenRouter-Anbindung, **Routing-Test: ZDR + Venice** | Läuft auf der DS124, erreichbar vom Handy |
 | **M1** ✅ | Chat mit Streaming, Knotenbaum, Speicherslots, Regenerate/Edit/Branch, Payload-Inspektor, Kostenanzeige, Modell-Vergleich | Spielbar, und du findest dein Modell für Deutsch |
-| **M2** | Charakterkarten inkl. Grenzen und Antrieben, Persona, Prompt-Editor, Token-Budget, **Gefälligkeits-Detektor** | Dein System-Prompt trägt das Spiel, Gefälligkeit wird sichtbar |
+| **M2** ✅ | Charakterkarten inkl. Grenzen und Antrieben, Persona, Prompt-Editor, Token-Budget, **Gefälligkeits-Detektor** | Dein System-Prompt trägt das Spiel, Gefälligkeit wird sichtbar |
 | **M3** | Zusammenfassungen, Fakten-Wiki, Hybrid-Retrieval, Lorebook | Figuren erinnern sich |
 | **M4** | Beziehungsachsen mit Deckelung, **Widerstandsbudget, Konzessionsprüfung, Antriebsdruck**, Beziehungs-Timeline | Figuren wehren sich und wollen etwas |
 | **M5** | Gruppenszenen, In-Game-Zeit, Zeitsprung-Zusammenfassung, Wissensmodell, Kontinuitätswarnungen | Die Welt hat mehr als eine Person darin |

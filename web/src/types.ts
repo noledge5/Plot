@@ -1,14 +1,54 @@
 export type Zustand = { eingerichtet: boolean; angemeldet: boolean; keyGesetzt: boolean };
 
+export type StorySettings = {
+  stilbeispiel: string;
+  szene: string;
+  welt: string;
+  autorNotiz: string;
+  druckSchwelle: number;
+};
+
 export type Story = {
   id: number;
   title: string;
   systemPrompt: string;
-  settings: string;
+  settings: StorySettings;
   headNodeId: number | null;
   createdAt: string;
   updatedAt: string;
 };
+
+export type Antrieb = { ziel: string; druck: number; sichtbar: boolean };
+export type WeicheGrenze = { was: string; erstAb: Record<string, number> };
+export type Geheimnis = { text: string; preisgabeAb: Record<string, number> };
+
+export type Blatt = {
+  kern: string;
+  sprechweise: string;
+  drives: Antrieb[] | null;
+  hardLimits: string[] | null;
+  softLimits: WeicheGrenze[] | null;
+  dealBreakers: string[] | null;
+  secrets: Geheimnis[] | null;
+  volatility: Record<string, number> | null;
+};
+
+export type Figur = {
+  id: number;
+  storyId: number;
+  rolle: "npc" | "persona";
+  name: string;
+  sheet: Blatt;
+  aktiv: boolean;
+  sortierung: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Befund = { muster: number; kurz: string; zitat: string; grund: string };
+export type Flags = { geprueft: boolean; modell?: string; befunde: Befund[] | null; fehler?: string };
+
+export type PromptBlock = { platzhalter: string; inhalt: string; tokens: number };
 
 export type Knoten = {
   id: number;
@@ -44,6 +84,7 @@ export type Modell = {
 };
 
 export type Einstellungen = {
+  detektorAn: boolean;
   narratorModel: string;
   reserveModel: string;
   analystModel: string;
@@ -61,6 +102,8 @@ export type Verbrauch = {
   total_tokens: number;
   cost: number;
 };
+
+export type Inspektion = { erzaehlung: Protokoll; alle: Protokoll[] };
 
 export type Protokoll = {
   id: number;

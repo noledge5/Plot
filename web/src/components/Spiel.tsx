@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { hole, schicke, strom } from "../api";
-import type { Einstellungen, Knoten, Story, Verbrauch } from "../types";
+import type { Einstellungen, Flags, Knoten, Story, Verbrauch } from "../types";
+import Figuren from "./Figuren";
 import Inspektor from "./Inspektor";
 import Speicherstaende from "./Speicherstaende";
 import { Hinweis, Knopf, eingabeKlasse, geld } from "./ui";
@@ -51,6 +52,10 @@ export default function Spiel({
   const [vergleich, setVergleich] = useState<Vergleich>(leererVergleich);
   const [letzterZug, setLetzterZug] = useState<{ modell: string; anbieter: string; usage: Verbrauch } | null>(null);
   const [reserveModell, setReserveModell] = useState("");
+  const [figurenOffen, setFigurenOffen] = useState(false);
+  // Befunde des Detektors je Knoten. Sie kommen beim Laden aus dem Verlauf und
+  // während eines Zuges als eigenes Ereignis nach.
+  const [befunde, setBefunde] = useState<Record<number, Flags>>({});
 
   const abbruch = useRef<AbortController | null>(null);
   const ende = useRef<HTMLDivElement>(null);
@@ -61,6 +66,16 @@ export default function Spiel({
       setStory(d.story);
       setKnoten(d.knoten);
       setKosten(d.kosten);
+      const gefunden: Record<number, Flags> = {};
+      for (const n of d.knoten) {
+        if (!n.flags || n.flags === "{}") continue;
+        try {
+          gefunden[n.id] = JSON.parse(n.flags) as Flags;
+        } catch {
+          /* unlesbare Befunde einfach weglassen */
+        }
+      }
+      setBefunde(gefunden);
     } catch (e) {
       setFehler(e instanceof Error ? e.message : String(e));
     }
@@ -101,6 +116,8 @@ export default function Spiel({
           else if (ereignis === "fehler") setFehler(daten.fehler);
           else if (ereignis === "fertig") {
             setLetzterZug({ modell: daten.modell, anbieter: daten.anbieter, usage: daten.usage });
+          } else if (ereignis === "befunde") {
+            setBefunde((b) => ({ ...b, [daten.nodeId]: daten.flags }));
           }
         },
         abbruch.current.signal,
@@ -120,7 +137,7 @@ export default function Spiel({
     }
   }
 
-  async function wiederholen(nodeId: number, modell?: string) {
+  async function wiederholen(nodeId: number, modell?: string, haerter = false) {
     setFehler("");
     setTeilText("");
     setLaufend(true);
@@ -128,12 +145,13 @@ export default function Spiel({
     try {
       await strom(
         `/api/stories/${storyId}/regenerate`,
-        { nodeId, modell },
+        { nodeId, modell, haerter },
         (ereignis, daten) => {
           if (ereignis === "delta") setTeilText((t) => t + daten.text);
           else if (ereignis === "fehler") setFehler(daten.fehler);
           else if (ereignis === "fertig")
             setLetzterZug({ modell: daten.modell, anbieter: daten.anbieter, usage: daten.usage });
+          else if (ereignis === "befunde") setBefunde((b) => ({ ...b, [daten.nodeId]: daten.flags }));
         },
         abbruch.current.signal,
       );
@@ -238,6 +256,9 @@ export default function Spiel({
             {letzterZug && ` · zuletzt ${letzterZug.modell.split("/").pop()} über ${letzterZug.anbieter}`}
           </div>
         </div>
+        <Knopf onClick={() => setFigurenOffen(true)} titel="Figuren, Grenzen, Antriebe">
+          Figuren
+        </Knopf>
         <Knopf onClick={() => story && promptBearbeiten(story)} titel="System-Prompt">
           Prompt
         </Knopf>
@@ -265,6 +286,28 @@ export default function Spiel({
                     </div>
                   ) : (
                     <div className="erzaehltext">{n.content}</div>
+                  )}
+                  {n.role === "assistant" && (befunde[n.id]?.befunde?.length ?? 0) > 0 && (
+                    <div className="mt-2 space-y-1 rounded-lg border border-amber-800/40 bg-amber-950/20 p-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs tracking-wide text-amber-200/80 uppercase">
+                          Gefälligkeit erkannt
+                        </span>
+                        <button
+                          className="rounded border border-amber-700/50 px-2 py-0.5 text-xs text-amber-100 hover:border-amber-500 disabled:opacity-40"
+                          disabled={laufend}
+                          onClick={() => wiederholen(n.id, undefined, true)}
+                        >
+                          nochmal, härter
+                        </button>
+                      </div>
+                      {befunde[n.id]!.befunde!.map((b, i) => (
+                        <div key={i} className="text-xs text-amber-100/80">
+                          <span className="font-medium">{b.kurz}:</span> {b.grund}
+                          {b.zitat && <span className="text-amber-100/50"> „{b.zitat}“</span>}
+                        </div>
+                      ))}
+                    </div>
                   )}
                   <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-gedaempft opacity-45 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                     {n.role === "assistant" && n.siblings > 1 && (
@@ -405,6 +448,12 @@ export default function Spiel({
         </div>
       </footer>
 
+      <Figuren
+        storyId={storyId}
+        offen={figurenOffen}
+        schliessen={() => setFigurenOffen(false)}
+        geaendert={ladePfad}
+      />
       <Inspektor nodeId={inspektor} schliessen={() => setInspektor(null)} />
     </div>
   );

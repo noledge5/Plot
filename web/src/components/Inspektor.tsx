@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { hole } from "../api";
-import type { Protokoll } from "../types";
+import type { Inspektion, Protokoll } from "../types";
 import { Dialog, Hinweis, geld } from "./ui";
 
 /**
@@ -15,14 +15,19 @@ export default function Inspektor({
   schliessen: () => void;
 }) {
   const [protokoll, setProtokoll] = useState<Protokoll | null>(null);
+  const [weitere, setWeitere] = useState<Protokoll[]>([]);
   const [fehler, setFehler] = useState("");
 
   useEffect(() => {
     if (nodeId === null) return;
     setProtokoll(null);
+    setWeitere([]);
     setFehler("");
-    hole<Protokoll>(`/api/nodes/${nodeId}/inspect`)
-      .then(setProtokoll)
+    hole<Inspektion>(`/api/nodes/${nodeId}/inspect`)
+      .then((d) => {
+        setProtokoll(d.erzaehlung);
+        setWeitere((d.alle ?? []).filter((r) => r.purpose !== "narrate"));
+      })
       .catch((e) => setFehler(e instanceof Error ? e.message : String(e)));
   }, [nodeId]);
 
@@ -73,6 +78,23 @@ export default function Inspektor({
             </summary>
             <pre className="overflow-x-auto px-3 pb-3 text-xs whitespace-pre-wrap text-text/80">{hübsch}</pre>
           </details>
+
+          {weitere.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-sm tracking-wide text-gedaempft uppercase">Weitere Aufrufe zu diesem Zug</h3>
+              {weitere.map((r) => (
+                <details key={r.id} className="rounded-lg border border-rand bg-grund">
+                  <summary className="cursor-pointer px-3 py-2 text-xs text-gedaempft">
+                    {r.purpose} · {r.model} · {geld(r.costUsd)} · {(r.latencyMs / 1000).toFixed(1)} s
+                    {r.error && " · fehlgeschlagen"}
+                  </summary>
+                  <pre className="overflow-x-auto px-3 pb-3 text-xs whitespace-pre-wrap text-text/70">
+                    {r.error || r.response}
+                  </pre>
+                </details>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </Dialog>

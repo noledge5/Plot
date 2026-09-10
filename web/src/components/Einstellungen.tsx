@@ -181,6 +181,27 @@ export default function Einstellungen({
           </div>
 
           <div className="space-y-4 rounded-lg border border-rand p-4">
+            <h3 className="text-sm tracking-wide text-gedaempft uppercase">Autonomie</h3>
+            <label className="flex items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={werte.detektorAn}
+                onChange={(e) => setzen({ detektorAn: e.target.checked })}
+              />
+              <span>
+                Jede Antwort auf Gefälligkeit prüfen
+                <span className="mt-0.5 block text-xs text-gedaempft">
+                  Der Analyst prüft nach dem Streaming gegen sieben Muster — Zustimmung ohne Preis,
+                  Spiegeln, unaufgefordertes Lob, bereitwillige Auskunft, weichgespülter Konflikt, keine
+                  eigene Initiative, und ob der Text deine Figur spielt. Befunde erscheinen am Zug, der
+                  Text bleibt stehen. Kostet rund ein Hundertstel Cent je Zug.
+                </span>
+              </span>
+            </label>
+          </div>
+
+          <div className="space-y-4 rounded-lg border border-rand p-4">
             <h3 className="text-sm tracking-wide text-gedaempft uppercase">Kontext</h3>
             <div className="grid gap-4 sm:grid-cols-3">
               <Feld label="Züge im Verlauf" hinweis="Bewusst klein halten.">

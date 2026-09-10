@@ -1,0 +1,13 @@
+# Die gebaute Oberfläche entsteht beim Release-Build und gehört nicht ins Repo.
+# Das Verzeichnis selbst muss bleiben, weil go:embed sonst nicht übersetzt.
+/internal/webui/dist/*
+!/internal/webui/dist/.gitkeep
+
+/web/node_modules/
+/web/dist/
+/plot
+/plot-linux-*
+/data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm

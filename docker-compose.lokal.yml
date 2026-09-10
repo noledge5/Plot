@@ -1,0 +1,14 @@
+# Für ein Abbild, das als Datei importiert wurde (Container Manager → Abbild →
+# Hinzufügen → Von Datei hinzufügen). Anders als docker-compose.yml wird hier
+# nichts aus einer Registry geholt.
+services:
+  plot:
+    image: plot:0.1.0
+    pull_policy: never
+    container_name: plot
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Enthält die SQLite-Datenbank. Diesen Ordner sichert Hyper Backup.
+      - /volume1/docker/plot:/data

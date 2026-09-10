@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+/* Ein ruhiger, warmer Hintergrund - der Text steht im Mittelpunkt, nicht die
+   Oberfläche. Bewusst nur ein dunkles Thema: gelesen wird abends. */
+@theme {
+  --color-grund: #12100e;
+  --color-flaeche: #1b1815;
+  --color-rand: #2e2822;
+  --color-text: #e8e2d9;
+  --color-gedaempft: #9a9086;
+  --color-akzent: #c9a227;
+  --color-spieler: #7fa7c7;
+  --font-erzaehlung: Iowan Old Style, Palatino, Georgia, serif;
+}
+
+html, body, #wurzel { height: 100%; }
+body {
+  background: var(--color-grund);
+  color: var(--color-text);
+  overscroll-behavior-y: none;
+}
+
+/* Der Erzähltext ist das Produkt. Serifen, großzügige Zeilenhöhe,
+   begrenzte Zeilenlänge. */
+.erzaehltext {
+  font-family: var(--font-erzaehlung);
+  font-size: 1.0625rem;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+textarea, input, select { font-size: 16px; } /* verhindert Zoom beim Tippen auf iOS */
+
+@keyframes pulsieren { 0%, 100% { opacity: .25 } 50% { opacity: 1 } }
+.schreibt::after {
+  content: "▋";
+  margin-left: .1em;
+  animation: pulsieren 1.1s ease-in-out infinite;
+  color: var(--color-akzent);
+}

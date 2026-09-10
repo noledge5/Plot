@@ -1,0 +1,12 @@
+# Für den Container Manager der Synology: Projekt anlegen, diese Datei
+# einfügen, starten. Der Ordner unter volumes muss vorher existieren.
+services:
+  plot:
+    image: ghcr.io/noledge5/plot:latest
+    container_name: plot
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Enthält die SQLite-Datenbank. Diesen Ordner sichert Hyper Backup.
+      - /volume1/docker/plot:/data

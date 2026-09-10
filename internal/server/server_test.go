@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/noledge5/plot/internal/config"
 	"github.com/noledge5/plot/internal/db"
+	"github.com/noledge5/plot/internal/webui"
 )
 
 // aufbau liefert einen angemeldeten Server samt gefälschtem OpenRouter.
@@ -372,5 +374,43 @@ func TestDetektorAbschaltbar(t *testing.T) {
 	s.db.QueryRow(`SELECT count(*) FROM run_log WHERE purpose = 'detektor'`).Scan(&anzahl)
 	if anzahl != 0 {
 		t.Fatalf("Detektor-Aufrufe = %d, erwartet 0", anzahl)
+	}
+}
+
+// Ohne diese Kopfzeilen behält der Browser nach einem Update die alte
+// Oberfläche: eingebettete Dateien tragen keine Änderungszeit, also gibt es
+// nichts zu validieren, und der Browser rät.
+func TestCacheKopfzeilen(t *testing.T) {
+	s, _ := aufbau(t, nil)
+
+	rec := httptest.NewRecorder()
+	s.ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
+	if got := rec.Header().Get("Cache-Control"); !strings.Contains(got, "no-cache") {
+		t.Fatalf("index.html darf nicht zwischengespeichert werden, ist aber %q", got)
+	}
+
+	// Auch der Rückfall auf index.html bei unbekannten Pfaden.
+	rec = httptest.NewRecorder()
+	s.ServeHTTP(rec, httptest.NewRequest("GET", "/eine/route", nil))
+	if got := rec.Header().Get("Cache-Control"); !strings.Contains(got, "no-cache") {
+		t.Fatalf("Rückfall auf index.html cachebar: %q", got)
+	}
+
+	// Ein fehlendes Asset muss als Fehler ankommen, nicht als HTML-Seite.
+	rec = httptest.NewRecorder()
+	s.ServeHTTP(rec, httptest.NewRequest("GET", "/assets/gibtsnicht-abc123.js", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("fehlendes Asset liefert %d statt 404", rec.Code)
+	}
+
+	// Gehashte Dateien dürfen dagegen dauerhaft liegen bleiben.
+	treffer, _ := fs.Glob(webui.FS(), "assets/*.js")
+	if len(treffer) == 0 {
+		t.Skip("keine gebaute Oberfläche vorhanden")
+	}
+	rec = httptest.NewRecorder()
+	s.ServeHTTP(rec, httptest.NewRequest("GET", "/"+treffer[0], nil))
+	if got := rec.Header().Get("Cache-Control"); !strings.Contains(got, "immutable") {
+		t.Fatalf("gehashte Datei nicht dauerhaft cachebar: %q", got)
 	}
 }

@@ -103,8 +103,31 @@ func (s *Server) static() http.Handler {
 			pfad = "index.html"
 		}
 		if _, err := fs.Stat(inhalt, pfad); err != nil {
+			// Eine fehlende gehashte Datei ist ein echter Fehler. Gäbe man
+			// hier index.html zurück, bekäme der Browser HTML statt
+			// JavaScript und meldete etwas völlig Unverständliches.
+			if strings.HasPrefix(pfad, "assets/") {
+				http.NotFound(w, r)
+				return
+			}
+			// Alles andere ist eine Route der Oberfläche.
 			r = r.Clone(r.Context())
 			r.URL.Path = "/"
+			pfad = "index.html"
+		}
+
+		// Eingebettete Dateien tragen keine Änderungszeit, also liefert der
+		// FileServer weder Last-Modified noch ETag. Ohne ausdrückliche Ansage
+		// entscheidet der Browser selbst - und behält nach einem Update die
+		// alte Oberfläche, obwohl der Server längst die neue ausliefert.
+		if strings.HasPrefix(pfad, "assets/") {
+			// Der Dateiname enthält einen Inhalts-Hash: ändert sich der Inhalt,
+			// ändert sich der Name. Das darf beliebig lange liegen bleiben.
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			// index.html und Manifest verweisen auf die gehashten Dateien und
+			// müssen deshalb bei jedem Aufruf frisch geholt werden.
+			w.Header().Set("Cache-Control", "no-cache, must-revalidate")
 		}
 		datei.ServeHTTP(w, r)
 	})

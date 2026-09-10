@@ -1,0 +1,28 @@
+# Wie docker-compose.yml, aber mit automatischen Updates: Watchtower prüft
+# stündlich, ob ein neues Abbild vorliegt, holt es und startet den Container
+# neu. Damit kommt jede Änderung von selbst auf die NAS.
+#
+# Preis dafür: Watchtower braucht Zugriff auf den Docker-Socket und kann damit
+# alles, was Docker kann. Auf einer NAS im eigenen Netz vertretbar - wer das
+# nicht will, nimmt docker-compose.yml und das Update-Skript im Aufgabenplaner.
+services:
+  plot:
+    image: ghcr.io/noledge5/plot:latest
+    container_name: plot
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - /volume1/docker/plot:/data
+    labels:
+      # Nur dieser Container wird automatisch aktualisiert, nichts anderes
+      # auf der NAS.
+      com.centurylinklabs.watchtower.enable: "true"
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: plot-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 3600 --cleanup --label-enable

@@ -77,8 +77,22 @@ anlegen mit der `docker-compose.yml` aus dem Repo.
 
 ### Aktualisieren
 
-Jeder Merge nach main veröffentlicht ein neues `:latest`. Auf der NAS holt es
-[`scripts/update-synology.sh`](../scripts/update-synology.sh) ab:
+Jeder Merge nach main veröffentlicht ein neues `:latest`. Wichtig zu wissen:
+**Container Manager holt das nicht von selbst.** Ein Neustart des Projekts nimmt
+weiter das lokal vorhandene Abbild — es braucht immer einen ausdrücklichen Pull.
+
+**Von Hand:** Container Manager → Projekt → **Aktion** → *Erstellen*. Das zieht
+das Abbild neu und startet den Container.
+
+**Von selbst:** [`docker-compose.auto.yml`](../docker-compose.auto.yml) statt
+`docker-compose.yml` verwenden. Darin läuft neben Plot ein Watchtower, der
+stündlich nachsieht, das neue Abbild holt und neu startet — nur für den
+Plot-Container, erkennbar am Label. Kostet rund 15 MB Arbeitsspeicher und gibt
+Watchtower Zugriff auf den Docker-Socket; wer das nicht will, nimmt den Weg
+darunter.
+
+**Über den Aufgabenplaner:** [`scripts/update-synology.sh`](../scripts/update-synology.sh)
+holt dasselbe ohne zusätzlichen Container:
 
 1. Skript per File Station nach `/volume1/docker/plot/` legen.
 2. Systemsteuerung → Aufgabenplaner → Erstellen → **Geplante Aufgabe** →

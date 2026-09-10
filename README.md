@@ -11,14 +11,15 @@ Charakterkarten, Gedächtnis und die Autonomie-Schicht folgen in M2–M5.
 
 ## Installation auf der Synology
 
-**Als Binary (empfohlen):** `plot-linux-arm64` per File Station nach `/volume1/plot/`
-legen und im Aufgabenplaner als Autostart eintragen — mit `chmod +x` als erster
-Zeile, weil hochgeladene Dateien nicht ausführbar sind. Kein Registry-Login, kein
-Daemon; auf einem Gerät mit 1 GB RAM spürbar sparsamer.
+**Mit Container Manager:** Abbild als Datei einspielen (Abbild → Hinzufügen → Von
+Datei hinzufügen) und starten, mit Port 8080 und `/volume1/docker/plot` als
+`/data`. Wer ein Projekt bevorzugt, nimmt [`docker-compose.lokal.yml`](docker-compose.lokal.yml);
+für den Weg über die Registry [`docker-compose.yml`](docker-compose.yml) — dann ist
+zu beachten, dass ein neues GHCR-Paket privat ist und einmalig freigegeben werden muss.
 
-**Mit Container Manager:** Ordner `/volume1/docker/plot` anlegen, Projekt darauf
-erstellen und die [`docker-compose.yml`](docker-compose.yml) einfügen. Beachte,
-dass ein neues GHCR-Paket privat ist und einmalig freigegeben werden muss.
+**Als Binary, ohne Docker:** `plot-linux-arm64` per File Station nach `/volume1/plot/`
+legen und im Aufgabenplaner als Autostart eintragen — mit `chmod +x` als erster
+Zeile, weil hochgeladene Dateien nicht ausführbar sind. Spart den Docker-Daemon.
 
 Ausführlich, mit allen Klickpfaden: [docs/BETRIEB-DS124.md](docs/BETRIEB-DS124.md).
 

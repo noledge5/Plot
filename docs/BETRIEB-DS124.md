@@ -48,10 +48,41 @@ Binary eingebettet. **Auf der NAS läuft nie ein Build**, nur das fertige Progra
 
 ---
 
-## Weg A: als Binary, ohne Docker (empfohlen für den Start)
+## Weg A: Container Manager
 
-Kein Registry-Login, kein Daemon, eine Datei. Auf einem Gerät mit 1 GB spart das
-die 100–200 MB des Docker-Daemons.
+**Variante 1 — Abbild als Datei einspielen.** Braucht kein Registry-Konto und
+keine Freigabe von Paketsichtbarkeiten.
+
+1. Container Manager → **Abbild** → Hinzufügen → **Von Datei hinzufügen**, die
+   Datei `plot-arm64-image.tar` auswählen. Danach steht `plot:0.1.0` in der Liste.
+2. File Station → Ordner `/volume1/docker/plot` anlegen (er nimmt die Datenbank auf).
+3. Das Abbild markieren → **Starten**. Im Assistenten:
+   - Container-Name: `plot`
+   - Automatischen Neustart aktivieren: Häkchen
+   - Port-Einstellungen: lokaler Port **8080** → Container-Port **8080**
+   - Ordner: `/volume1/docker/plot` einhängen als **`/data`**
+4. Fertig, läuft.
+
+Wer lieber ein Projekt anlegt, nimmt `docker-compose.lokal.yml` aus dem Repo —
+sie verweist auf das importierte Abbild und holt nichts aus einer Registry.
+
+**Variante 2 — aus der Registry ziehen.** Bequemer bei Updates, verlangt aber
+einmalige Vorarbeit: Das Abbild entsteht im Arbeitsablauf „Veröffentlichen"
+(GitHub → Actions → Run workflow), und ein neu angelegtes GHCR-Paket ist
+**privat**, auch bei öffentlichem Repository. Entweder du stellst es einmalig um
+(GitHub → Profil → Packages → `plot` → Package settings → Change visibility →
+Public), oder du hinterlegst im Container Manager unter Registrierung →
+Einstellungen ein Konto für `ghcr.io` mit einem Zugriffstoken. Danach: Projekt
+anlegen mit der `docker-compose.yml` aus dem Repo.
+
+**Aktualisieren:** neues Abbild importieren beziehungsweise Projekt neu
+erstellen; der Datenordner bleibt unangetastet, die Datenbank überlebt.
+
+## Weg B: als Binary, ohne Docker
+
+Sinnvoll, wenn der Arbeitsspeicher knapp wird: spart die 100–200 MB des
+Docker-Daemons. Dieselbe Datenbank funktioniert für beide Wege — du kannst
+jederzeit wechseln, ohne etwas zu verlieren.
 
 **1. Ordner anlegen.** File Station → freigegebenen Ordner `plot` erstellen.
 Sein Pfad ist dann `/volume1/plot`.
@@ -84,22 +115,9 @@ Aufgabenplaner stoppt den Hintergrundprozess nicht zuverlässig.
 **Aktualisieren:** stoppen, neue Datei hochladen (überschreiben), Startaufgabe
 erneut ausführen. Die Datenbank bleibt unangetastet.
 
-## Weg B: Container Manager
-
-Bequemer bei Updates, kostet aber den Daemon. Ein Stolperstein vorweg: Ein neu
-angelegtes GHCR-Paket ist **privat**, auch wenn das Repository öffentlich ist.
-Entweder du stellst es einmalig um (GitHub → dein Profil → Packages → `plot` →
-Package settings → Change visibility → Public), oder du hinterlegst im Container
-Manager unter Registrierung → Einstellungen ein Konto für `ghcr.io` mit einem
-Zugriffstoken.
-
-1. File Station → Ordner `/volume1/docker/plot` anlegen.
-2. Container Manager → Projekt → Erstellen, Pfad `/volume1/docker/plot`, Quelle
-   „YAML erstellen", Inhalt der `docker-compose.yml` aus dem Repo einfügen.
-3. Starten. Autostart nach einem NAS-Neustart ist eingebaut.
-
-Das Bild entsteht im Arbeitsablauf „Veröffentlichen" (GitHub → Actions → Run
-workflow) oder bei einem Versions-Tag.
+Achtung beim Wechsel zwischen den Wegen: Der Container legt die Datenbank unter
+`/volume1/docker/plot` an, die Aufgabenplaner-Variante oben unter `/volume1/plot`.
+Wer wechselt, gibt entweder denselben Ordner an oder kopiert `plot.sqlite` hinüber.
 
 ## Zugriff (Tailscale ist schon da)
 

@@ -20,9 +20,14 @@ ARG TARGETARCH
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH \
     go build -trimpath -ldflags="-s -w" -o /plot ./cmd/plot
 
+# Eigene, unveränderte Stufe nur für das Wurzelzertifikat-Bündel. Es aus der
+# Bau-Stufe zu übernehmen wäre bequemer, würde aber alles mitschleppen, was dort
+# an Zertifikaten hinzugefügt wurde - etwa die CA eines Build-Proxys.
+FROM alpine:3 AS zertifikate
+
 FROM scratch
 # Ohne Wurzelzertifikate scheitert jede HTTPS-Verbindung zu OpenRouter.
-COPY --from=bau /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=zertifikate /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=bau /plot /plot
 VOLUME ["/data"]
 EXPOSE 8080

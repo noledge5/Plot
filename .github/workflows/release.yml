@@ -40,12 +40,17 @@ jobs:
 
       # Für den Weg ohne Docker: nackte Binaries, die per File Station auf die
       # NAS wandern und im Aufgabenplaner gestartet werden.
+      - name: Version bestimmen
+        id: version
+        run: echo "wert=$(date -u +%Y-%m-%d)-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Binaries bauen
         run: |
           mkdir -p auslieferung
           for arch in arm64 amd64; do
             CGO_ENABLED=0 GOOS=linux GOARCH=$arch \
-              go build -trimpath -ldflags="-s -w" -o auslieferung/plot-linux-$arch ./cmd/plot
+              go build -trimpath -ldflags="-s -w -X main.version=${{ steps.version.outputs.wert }}" \
+              -o auslieferung/plot-linux-$arch ./cmd/plot
           done
           ls -lh auslieferung/
 
@@ -90,6 +95,8 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
+          build-args: |
+            VERSION=${{ steps.version.outputs.wert }}
           tags: |
             ${{ steps.name.outputs.bild }}:latest
             ${{ steps.name.outputs.bild }}:${{ steps.name.outputs.marke }}

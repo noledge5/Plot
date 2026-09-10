@@ -17,8 +17,10 @@ RUN go mod download
 COPY . .
 COPY --from=oberflaeche /fertig/ ./internal/webui/dist/
 ARG TARGETARCH
+# VERSION macht am laufenden Container sichtbar, welcher Stand darin steckt.
+ARG VERSION=dev
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH \
-    go build -trimpath -ldflags="-s -w" -o /plot ./cmd/plot
+    go build -trimpath -ldflags="-s -w -X main.version=$VERSION" -o /plot ./cmd/plot
 
 # Eigene, unveränderte Stufe nur für das Wurzelzertifikat-Bündel. Es aus der
 # Bau-Stufe zu übernehmen wäre bequemer, würde aber alles mitschleppen, was dort

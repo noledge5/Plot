@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { hole, schicke } from "../api";
-import type { Einstellungen as Werte, Modell } from "../types";
+import type { Einstellungen as Werte, Modell, Zustand } from "../types";
 import ModellWahl from "./ModellWahl";
 import { Dialog, Feld, Hinweis, Knopf, eingabeKlasse } from "./ui";
 
@@ -24,12 +24,16 @@ export default function Einstellungen({
   const [gespeichert, setGespeichert] = useState(false);
   const [tests, setTests] = useState<Testergebnis[]>([]);
   const [testLaeuft, setTestLaeuft] = useState(false);
+  const [zustand, setZustand] = useState<Zustand | null>(null);
 
   useEffect(() => {
     if (!offen) return;
     hole<{ settings: Werte }>("/api/settings")
       .then((d) => setWerte(d.settings))
       .catch((e) => setFehler(String(e.message ?? e)));
+    hole<Zustand>("/api/state")
+      .then(setZustand)
+      .catch(() => setZustand(null));
   }, [offen]);
 
   // Der Katalog kommt erst, wenn ein Schlüssel hinterlegt ist.
@@ -270,6 +274,15 @@ export default function Einstellungen({
               </div>
             ))}
           </div>
+
+          {zustand && (
+            <div className="rounded-lg border border-rand px-3 py-2 text-xs text-gedaempft">
+              Version <span className="font-mono text-text/80">{zustand.version}</span>
+              {zustand.koennen?.length > 0 && (
+                <span> · enthält: {zustand.koennen.join(", ")}</span>
+              )}
+            </div>
+          )}
 
           <Hinweis text={fehler} />
           {gespeichert && <Hinweis text="Gespeichert." art="gut" />}

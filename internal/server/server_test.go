@@ -32,7 +32,7 @@ func aufbau(t *testing.T, antwort func(w http.ResponseWriter, r *http.Request)) 
 	}
 
 	s := New(&config.Config{DataDir: t.TempDir()}, d,
-		slog.New(slog.NewTextHandler(io.Discard, nil)))
+		slog.New(slog.NewTextHandler(io.Discard, nil)), "test")
 
 	rec := httptest.NewRecorder()
 	s.ServeHTTP(rec, jsonReq(t, "POST", "/api/setup", map[string]any{"Passwort": "geheimnis1"}))

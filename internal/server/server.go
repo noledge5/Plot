@@ -16,15 +16,19 @@ import (
 )
 
 type Server struct {
-	db     *db.DB
-	cfg    *config.Config
-	log    *slog.Logger
-	bremse *bremse
-	mux    *http.ServeMux
+	db      *db.DB
+	cfg     *config.Config
+	log     *slog.Logger
+	version string
+	bremse  *bremse
+	mux     *http.ServeMux
 }
 
-func New(cfg *config.Config, database *db.DB, log *slog.Logger) *Server {
-	s := &Server{db: database, cfg: cfg, log: log, bremse: &bremse{}, mux: http.NewServeMux()}
+func New(cfg *config.Config, database *db.DB, log *slog.Logger, version string) *Server {
+	if version == "" {
+		version = "dev"
+	}
+	s := &Server{db: database, cfg: cfg, log: log, version: version, bremse: &bremse{}, mux: http.NewServeMux()}
 	s.routes()
 	return s
 }

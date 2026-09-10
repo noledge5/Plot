@@ -1,4 +1,11 @@
-export type Zustand = { eingerichtet: boolean; angemeldet: boolean; keyGesetzt: boolean };
+export type Zustand = {
+  eingerichtet: boolean;
+  angemeldet: boolean;
+  keyGesetzt: boolean;
+  version: string;
+  /** Was dieser Stand kann — damit man sieht, ob ein Update angekommen ist. */
+  koennen: string[];
+};
 
 export type StorySettings = {
   stilbeispiel: string;

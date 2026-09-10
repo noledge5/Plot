@@ -17,6 +17,11 @@ import (
 	"github.com/noledge5/plot/internal/server"
 )
 
+// version wird beim Bauen gesetzt (-ldflags "-X main.version=..."). Ohne
+// Angabe steht hier "dev" - damit man einem laufenden Container ansieht,
+// welcher Stand darin steckt.
+var version = "dev"
+
 func main() {
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
@@ -35,7 +40,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:    cfg.Addr,
-		Handler: server.New(cfg, database, log),
+		Handler: server.New(cfg, database, log, version),
 		// Kein WriteTimeout: eine Erzählantwort streamt minutenlang, ein
 		// Zeitlimit auf der Schreibseite würde sie mittendrin abschneiden.
 		ReadHeaderTimeout: 15 * time.Second,
@@ -46,7 +51,7 @@ func main() {
 	signal.Notify(beenden, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		log.Info("Plot läuft", "adresse", cfg.Addr, "daten", cfg.DataDir)
+		log.Info("Plot läuft", "version", version, "adresse", cfg.Addr, "daten", cfg.DataDir)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error("Server gestoppt", "fehler", err)
 			os.Exit(1)

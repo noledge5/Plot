@@ -17,7 +17,7 @@ export default function App() {
     try {
       setZustand(await hole<Zustand>("/api/state"));
     } catch {
-      setZustand({ eingerichtet: false, angemeldet: false, keyGesetzt: false });
+      setZustand({ eingerichtet: false, angemeldet: false, keyGesetzt: false, version: "?", koennen: [] });
     }
   }, []);
 

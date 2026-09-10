@@ -166,6 +166,9 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 		"eingerichtet": s.eingerichtet(),
 		"angemeldet":   s.angemeldet(r),
 		"keyGesetzt":   s.db.Setting("openrouter_key", "") != "",
+		"version":      s.version,
+		// Woran man erkennt, ob ein Update tatsächlich angekommen ist.
+		"koennen": []string{"figuren", "prompt-platzhalter", "stilbeispiel", "detektor"},
 	})
 }
 

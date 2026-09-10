@@ -48,46 +48,70 @@ Binary eingebettet. **Auf der NAS läuft nie ein Build**, nur das fertige Progra
 
 ---
 
-## Weg A: Container Manager (Hauptweg)
+## Weg A: als Binary, ohne Docker (empfohlen für den Start)
 
-GitHub Actions baut bei jedem Release ein arm64-Image und legt es auf GHCR ab.
+Kein Registry-Login, kein Daemon, eine Datei. Auf einem Gerät mit 1 GB spart das
+die 100–200 MB des Docker-Daemons.
 
-1. **Ordner anlegen:** In der File Station `/volume1/docker/plot/` erstellen.
-2. **Projekt anlegen:** Container Manager → Projekt → Erstellen, Pfad
-   `/volume1/docker/plot`, als Quelle „YAML erstellen" und den Inhalt der
-   `docker-compose.yml` aus dem Repo einfügen. Sie hängt denselben Ordner als
-   `/data` ein und veröffentlicht Port 8080.
-3. **Starten.** Container Manager zieht das Image und startet es; Autostart nach
-   einem Neustart der NAS ist eingebaut.
-4. **Aufrufen:** `http://<tailscale-name>:8080`, den OpenRouter-Key trägst du
-   **in der Weboberfläche** ein — du sollst nie einen Texteditor auf der NAS
-   brauchen.
+**1. Ordner anlegen.** File Station → freigegebenen Ordner `plot` erstellen.
+Sein Pfad ist dann `/volume1/plot`.
 
-Updates: im Projekt auf „Erstellen"/Pull klicken, das Image wird ersetzt.
+**2. Binary hineinlegen.** `plot-linux-arm64` per Drag & Drop in den Ordner ziehen.
 
-## Weg B: nativ, ohne Docker (Alternative)
+**3. Autostart einrichten.** Systemsteuerung → Aufgabenplaner → Erstellen →
+Ausgelöste Aufgabe → Benutzerdefiniertes Skript:
 
-Sinnvoll, wenn der Arbeitsspeicher knapp wird oder Container Manager nach einem
-DSM-Update einmal nicht mehr da ist. Spart die 100–200 MB des Docker-Daemons.
+- Aufgabenname: `Plot`
+- Benutzer: `root`
+- Ereignis: `Hochfahren`
+- Aktiviert: Häkchen setzen
+- Reiter „Aufgabeneinstellungen" → Benutzerdefiniertes Skript:
 
-1. `plot-linux-arm64` aus dem Release herunterladen, per File Station nach
-   `/volume1/plot/` ziehen.
-2. Systemsteuerung → Aufgabenplaner → Erstellen → Ausgelöste Aufgabe →
-   Benutzerdefiniertes Skript. Ereignis „Hochfahren", Benutzer `root`, im
-   Skriptfeld eine Zeile:
-   ```
-   /volume1/plot/plot-linux-arm64 --data /volume1/plot &
-   ```
-   „Jetzt ausführen" startet es sofort, ohne Neustart.
+```sh
+chmod +x /volume1/plot/plot-linux-arm64
+/volume1/plot/plot-linux-arm64 --data /volume1/plot &
+```
 
-Kein SSH, kein Terminal, kein Paketmanager. Dieselbe SQLite-Datei funktioniert für
-beide Wege — du kannst jederzeit wechseln, ohne etwas zu verlieren.
+Die erste Zeile ist nicht optional: über File Station hochgeladene Dateien sind
+nicht ausführbar, und ohne sie startet nichts.
+
+**4. Starten.** Aufgabe in der Liste markieren → „Ausführen". Kein Neustart nötig.
+
+**Stoppen** (etwa vor einem Update): eine zweite Aufgabe nach demselben Muster,
+ohne Ereignis, mit `pkill -f plot-linux-arm64` als Skript. „Beenden" im
+Aufgabenplaner stoppt den Hintergrundprozess nicht zuverlässig.
+
+**Aktualisieren:** stoppen, neue Datei hochladen (überschreiben), Startaufgabe
+erneut ausführen. Die Datenbank bleibt unangetastet.
+
+## Weg B: Container Manager
+
+Bequemer bei Updates, kostet aber den Daemon. Ein Stolperstein vorweg: Ein neu
+angelegtes GHCR-Paket ist **privat**, auch wenn das Repository öffentlich ist.
+Entweder du stellst es einmalig um (GitHub → dein Profil → Packages → `plot` →
+Package settings → Change visibility → Public), oder du hinterlegst im Container
+Manager unter Registrierung → Einstellungen ein Konto für `ghcr.io` mit einem
+Zugriffstoken.
+
+1. File Station → Ordner `/volume1/docker/plot` anlegen.
+2. Container Manager → Projekt → Erstellen, Pfad `/volume1/docker/plot`, Quelle
+   „YAML erstellen", Inhalt der `docker-compose.yml` aus dem Repo einfügen.
+3. Starten. Autostart nach einem NAS-Neustart ist eingebaut.
+
+Das Bild entsteht im Arbeitsablauf „Veröffentlichen" (GitHub → Actions → Run
+workflow) oder bei einem Versions-Tag.
 
 ## Zugriff (Tailscale ist schon da)
 
 Der Verkehr im Tailnet läuft über WireGuard und ist bereits verschlüsselt — für den
 Zugriff von unterwegs brauchst du also **kein** Zertifikat und keinen Reverse Proxy.
 HTTP auf Port 8080 innerhalb des Tailnets genügt.
+
+Aufgerufen wird `http://<gerätename>:8080` (bei aktivem MagicDNS) oder
+`http://100.x.y.z:8080` mit der Tailscale-Adresse der NAS; beides steht in der
+Tailscale-App unter dem Gerät. Zwei mögliche Stolpersteine: Ist Port 8080 auf der
+NAS schon belegt, hängst du `--addr :8099` an den Startbefehl. Und wenn die
+DSM-Firewall aktiv ist, muss der Port für das Tailscale-Netz freigegeben sein.
 
 Der Login in der App bleibt trotzdem drin: falls je ein weiteres Gerät oder eine
 weitere Person ins Tailnet kommt, oder ein Gerät verloren geht. Ein Passwort

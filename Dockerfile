@@ -26,6 +26,13 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH \
 FROM alpine:3 AS zertifikate
 
 FROM scratch
+# Verknüpft das Paket auf GHCR mit diesem Repository: ohne dieses Label steht
+# das Abbild dort ohne Herkunft, erscheint nicht auf der Repo-Seite und erbt
+# deren Zugriffsrechte nicht.
+LABEL org.opencontainers.image.source="https://github.com/noledge5/Plot"
+LABEL org.opencontainers.image.title="Plot"
+LABEL org.opencontainers.image.description="Lokale Rollenspiel-Engine mit eigenem System-Prompt, Turn-Baum und Speicherständen"
+
 # Ohne Wurzelzertifikate scheitert jede HTTPS-Verbindung zu OpenRouter.
 COPY --from=zertifikate /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=bau /plot /plot

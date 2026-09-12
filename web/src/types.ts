@@ -92,6 +92,8 @@ export type Modell = {
 
 export type Einstellungen = {
   detektorAn: boolean;
+  gedaechtnisAn: boolean;
+  faktenAutomatisch: boolean;
   narratorModel: string;
   reserveModel: string;
   analystModel: string;
@@ -124,3 +126,30 @@ export type Protokoll = {
   error: string;
   createdAt: string;
 };
+
+export type Fakt = {
+  id: number;
+  storyId: number;
+  betrifft: string;
+  text: string;
+  gewicht: number;
+  status: "proposed" | "canon" | "retired";
+  angeheftet: boolean;
+  quelle: number | null;
+  giltAb: number | null;
+  giltBis: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Abschnitt = {
+  id: number;
+  storyId: number;
+  ebene: number;
+  vonNode: number;
+  bisNode: number;
+  text: string;
+  createdAt: string;
+};
+
+export type Gedaechtnis = { chronik: Abschnitt[]; imPrompt: Fakt[]; bisKnoten: number };

@@ -150,7 +150,12 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Figuren nicht lesbar")
 		return
 	}
-	text, bloecke := baueSystemPrompt(vorlage, promptWerte(st, storySettings(st), persona, npcs, nil))
+	var pfad []db.Node
+	if st.HeadNodeID != nil {
+		pfad, _ = s.db.Path(*st.HeadNodeID)
+	}
+	text, bloecke := baueSystemPrompt(vorlage, promptWerte(st, storySettings(st), persona, npcs, nil,
+		s.rendereChronik(st.ID, pfad), s.abrufFakten(st, pfad, npcs, 12)))
 	writeJSON(w, http.StatusOK, map[string]any{
 		"text":    text,
 		"bloecke": bloecke,

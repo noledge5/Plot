@@ -91,7 +91,14 @@ func (s *Server) erzaehlung(ctx context.Context, st *db.Story, elternID *int64, 
 	// Regieanweisungen aus dem Verlauf kommen zu den Direktiven der Engine
 	// dazu und landen gemeinsam in {{directives}}.
 	direktiven = append(offeneRegie(pfad), direktiven...)
-	system, bloecke := baueSystemPrompt(st.SystemPrompt, promptWerte(st, storySet, persona, npcs, direktiven))
+
+	// Chronik und Faktenblatt: was aus dem wörtlichen Verlauf gefallen ist,
+	// und was dauerhaft gilt.
+	chronik := s.rendereChronik(st.ID, pfad)
+	fakten := s.abrufFakten(st, pfad, npcs, 12)
+
+	system, bloecke := baueSystemPrompt(st.SystemPrompt,
+		promptWerte(st, storySet, persona, npcs, direktiven, chronik, fakten))
 	msgs, abgeschnitten := baueNachrichten(system, pfad, set.MaxHistoryTurns)
 
 	temp := set.Temperature
@@ -205,9 +212,10 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 		"usage": res.Usage, "kostenGesamt": kosten, "aufrufe": aufrufe,
 	})
 
-	// Erst der Text, dann die Prüfung: der Leser soll nicht auf den Analysten
-	// warten. Die Verbindung steht noch, also kommt der Befund nach.
+	// Erst der Text, dann die Auswertung: der Leser soll nicht auf den
+	// Analysten warten. Die Verbindung steht noch, also kommt beides nach.
 	s.pruefungNachreichen(strom, st, knoten, set)
+	s.gedaechtnisNachreichen(strom, st, knoten, set)
 }
 
 // pruefungNachreichen lässt den Detektor laufen und schickt das Ergebnis über
@@ -218,6 +226,18 @@ func (s *Server) pruefungNachreichen(strom *sse, st *db.Story, knoten *db.Node, 
 	}
 	flags := s.detektorLauf(st, knoten, set)
 	strom.sende("befunde", map[string]any{"nodeId": knoten.ID, "flags": flags})
+}
+
+// gedaechtnisNachreichen gewinnt Fakten und verlängert die Chronik, nachdem
+// der Text beim Leser ist.
+func (s *Server) gedaechtnisNachreichen(strom *sse, st *db.Story, knoten *db.Node, set Settings) {
+	if !set.GedaechtnisAn {
+		return
+	}
+	neu := s.gedaechtnisNachziehen(st, knoten, set)
+	if neu > 0 {
+		strom.sende("gedaechtnis", map[string]any{"nodeId": knoten.ID, "neueFakten": neu})
+	}
 }
 
 // handleRegenerate erzeugt eine weitere Fassung desselben Zuges. Die bisherige
@@ -284,6 +304,7 @@ func (s *Server) handleRegenerate(w http.ResponseWriter, r *http.Request) {
 		"usage": res.Usage, "kostenGesamt": kosten, "aufrufe": aufrufe,
 	})
 	s.pruefungNachreichen(strom, st, knoten, set)
+	s.gedaechtnisNachreichen(strom, st, knoten, set)
 }
 
 // handleCompare stellt zwei Modelle nebeneinander: derselbe Prompt, zwei

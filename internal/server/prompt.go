@@ -249,7 +249,8 @@ func baueSystemPrompt(vorlage string, werte map[string]string) (string, []Block)
 }
 
 // promptWerte sammelt alles, was die Vorlage einsetzen kann.
-func promptWerte(st *db.Story, set StorySettings, persona *db.Character, npcs []db.Character, direktiven []string) map[string]string {
+func promptWerte(st *db.Story, set StorySettings, persona *db.Character, npcs []db.Character,
+	direktiven []string, chronik string, fakten []db.Fact) map[string]string {
 	alle := npcs
 	if persona != nil {
 		alle = append([]db.Character{*persona}, npcs...)
@@ -266,6 +267,8 @@ func promptWerte(st *db.Story, set StorySettings, persona *db.Character, npcs []
 	}
 
 	return map[string]string{
+		"chronik":      strings.TrimSpace(chronik),
+		"memories":     rendereFakten(fakten),
 		"persona":      strings.TrimSpace(personaText),
 		"characters":   strings.TrimSpace(strings.Join(figuren, "\n")),
 		"limits":       rendereGrenzen(alle),

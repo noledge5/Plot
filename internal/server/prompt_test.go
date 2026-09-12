@@ -22,7 +22,7 @@ func TestPlatzhalterWerdenGefuellt(t *testing.T) {
 	st := &db.Story{SystemPrompt: "Du bist Spielleiter.\n\n{{characters}}\n\n{{limits}}\n\n{{drives}}"}
 	mira := figur("Mira")
 	text, bloecke := baueSystemPrompt(st.SystemPrompt,
-		promptWerte(st, StorySettings{DruckSchwelle: 60}, nil, []db.Character{mira}, nil))
+		promptWerte(st, StorySettings{DruckSchwelle: 60}, nil, []db.Character{mira}, nil, "", nil))
 
 	if !strings.Contains(text, "Mira ist Wirtin.") {
 		t.Fatalf("Figurenblatt fehlt:\n%s", text)
@@ -44,7 +44,7 @@ func TestPlatzhalterWerdenGefuellt(t *testing.T) {
 // Text verschwindet - er soll im Editor auffallen.
 func TestUnbekannterPlatzhalterBleibtStehen(t *testing.T) {
 	st := &db.Story{SystemPrompt: "Hallo {{charaktere}} und {{characters}}"}
-	text, _ := baueSystemPrompt(st.SystemPrompt, promptWerte(st, StorySettings{}, nil, nil, nil))
+	text, _ := baueSystemPrompt(st.SystemPrompt, promptWerte(st, StorySettings{}, nil, nil, nil, "", nil))
 	if !strings.Contains(text, "{{charaktere}}") {
 		t.Fatalf("unbekannter Platzhalter wurde entfernt: %q", text)
 	}
@@ -98,7 +98,7 @@ func TestStilbeispielWirdAlsProbeGekennzeichnet(t *testing.T) {
 // im Prompt nach Fehler aus und kosten Tokens.
 func TestLeereBloeckeHinterlassenKeineLuecken(t *testing.T) {
 	st := &db.Story{SystemPrompt: "Anfang\n\n{{characters}}\n\n{{limits}}\n\n{{drives}}\n\nEnde"}
-	text, _ := baueSystemPrompt(st.SystemPrompt, promptWerte(st, StorySettings{}, nil, nil, nil))
+	text, _ := baueSystemPrompt(st.SystemPrompt, promptWerte(st, StorySettings{}, nil, nil, nil, "", nil))
 	if strings.Contains(text, "\n\n\n") {
 		t.Fatalf("Lücken im Prompt:\n%q", text)
 	}
@@ -163,5 +163,43 @@ func TestRegieGiltNurBisZurNaechstenAntwort(t *testing.T) {
 	// Nach einer Antwort ist nichts mehr offen.
 	if len(offeneRegie(pfad[:2])) != 0 {
 		t.Fatal("erledigte Anweisung gilt weiter")
+	}
+}
+
+// Fakten aus einem verworfenen Zweig dürfen auf dieser Zeitlinie nicht
+// gelten - sonst erinnert sich eine Figur an etwas, das nie geschehen ist.
+func TestFaktenGeltenNurAufIhremZweig(t *testing.T) {
+	aufPfad := map[int64]bool{1: true, 2: true, 5: true}
+	ab, weg := int64(2), int64(99)
+	nachBis := int64(5)
+
+	faelle := []struct {
+		name     string
+		fakt     db.Fact
+		erwartet bool
+	}{
+		{"ohne Herkunft gilt immer", db.Fact{Status: "canon"}, true},
+		{"Herkunft auf dem Pfad", db.Fact{Status: "canon", GiltAb: &ab}, true},
+		{"Herkunft im anderen Zweig", db.Fact{Status: "canon", GiltAb: &weg}, false},
+		{"zurückgezogen auf diesem Pfad", db.Fact{Status: "canon", GiltAb: &ab, GiltBis: &nachBis}, false},
+		{"zurückgezogen im anderen Zweig", db.Fact{Status: "canon", GiltAb: &ab, GiltBis: &weg}, true},
+		{"nur vorgeschlagen", db.Fact{Status: "proposed", GiltAb: &ab}, false},
+		{"stillgelegt", db.Fact{Status: "retired", GiltAb: &ab}, false},
+	}
+	for _, f := range faelle {
+		if got := gueltig(f.fakt, aufPfad); got != f.erwartet {
+			t.Errorf("%s: gültig = %v, erwartet %v", f.name, got, f.erwartet)
+		}
+	}
+}
+
+// Derselbe Sachverhalt darf nicht bei jedem Zug erneut aufgeschrieben werden.
+func TestDoppelteFaktenWerdenErkannt(t *testing.T) {
+	vorhanden := []db.Fact{{Text: "Mira hat einen Bruder in Kessin, der beim Zoll arbeitet."}}
+	if !istDoppelt("Mira hat einen Bruder in Kessin, welcher beim Zoll arbeitet.", vorhanden) {
+		t.Error("Umformulierung nicht als Dopplung erkannt")
+	}
+	if istDoppelt("Mira schuldet dem Wirt seit dem Frühjahr Geld.", vorhanden) {
+		t.Error("anderer Sachverhalt fälschlich als Dopplung verworfen")
 	}
 }

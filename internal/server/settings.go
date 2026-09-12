@@ -30,6 +30,12 @@ type Settings struct {
 	// DetektorAn schaltet die Prüfung auf Gefälligkeit ein. Sie läuft nach
 	// dem Streaming und kostet rund ein Hundertstel Cent je Zug.
 	DetektorAn bool `json:"detektorAn"`
+	// GedaechtnisAn schaltet Chronik und Faktenblatt ein: Was aus dem
+	// wörtlichen Verlauf fällt, wird zusammengefasst statt vergessen.
+	GedaechtnisAn bool `json:"gedaechtnisAn"`
+	// FaktenAutomatisch übernimmt neue Fakten ohne Rückfrage. Aus heißt:
+	// sie landen als Vorschlag und gelten erst nach deiner Freigabe.
+	FaktenAutomatisch bool `json:"faktenAutomatisch"`
 }
 
 func defaultSettings() Settings {
@@ -44,6 +50,8 @@ func defaultSettings() Settings {
 		MaxTokens:         1200,
 		Temperature:       0.9,
 		DetektorAn:        true,
+		GedaechtnisAn:     true,
+		FaktenAutomatisch: true,
 	}
 }
 

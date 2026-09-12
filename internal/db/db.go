@@ -136,6 +136,44 @@ CREATE TABLE character (
 );
 CREATE INDEX idx_character_story ON character(story_id);
 `,
+	// M3: Gedächtnis. Die Chronik ersetzt, was der Verlaufsdeckel abschneidet;
+	// das Faktenblatt hält fest, was dauerhaft gilt. Beide hängen am Knoten,
+	// damit sie in einem verworfenen Zweig nicht mitgelten.
+	`
+CREATE TABLE memory_summary (
+	id         INTEGER PRIMARY KEY,
+	story_id   INTEGER NOT NULL REFERENCES story(id) ON DELETE CASCADE,
+	ebene      INTEGER NOT NULL DEFAULT 1,   -- 1 = Abschnitt, 2 = Kapitel
+	von_node   INTEGER NOT NULL REFERENCES node(id) ON DELETE CASCADE,
+	bis_node   INTEGER NOT NULL REFERENCES node(id) ON DELETE CASCADE,
+	text       TEXT NOT NULL,
+	created_at TEXT NOT NULL
+);
+CREATE INDEX idx_summary_story ON memory_summary(story_id);
+
+CREATE TABLE memory_fact (
+	id         INTEGER PRIMARY KEY,
+	story_id   INTEGER NOT NULL REFERENCES story(id) ON DELETE CASCADE,
+	betrifft   TEXT NOT NULL DEFAULT '',     -- Name der Figur, um die es geht
+	text       TEXT NOT NULL,
+	gewicht    INTEGER NOT NULL DEFAULT 50,  -- wie wichtig, 0-100
+	status     TEXT NOT NULL DEFAULT 'canon',-- proposed | canon | retired
+	angeheftet INTEGER NOT NULL DEFAULT 0,   -- immer in den Prompt
+	quelle     INTEGER REFERENCES node(id) ON DELETE SET NULL,
+	gilt_ab    INTEGER REFERENCES node(id) ON DELETE SET NULL,
+	gilt_bis   INTEGER REFERENCES node(id) ON DELETE SET NULL,
+	created_at TEXT NOT NULL,
+	updated_at TEXT NOT NULL
+);
+CREATE INDEX idx_fact_story ON memory_fact(story_id, status);
+
+-- Volltextindex für den Abruf. Reine Stichwortsuche trägt im Rollenspiel
+-- weit, weil am häufigsten nach Eigennamen, Zitaten und Daten gesucht wird.
+-- Die rowid entspricht memory_fact.id, damit Einfügen und Löschen einfach
+-- bleiben; eine inhaltslose Tabelle wäre sparsamer, aber umständlich zu
+-- pflegen, und ein paar hundert Fakten wiegen nichts.
+CREATE VIRTUAL TABLE memory_fts USING fts5(text, betrifft);
+`,
 }
 
 func (d *DB) migrate() error {

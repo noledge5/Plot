@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { hole, schicke, strom } from "../api";
 import type { Einstellungen, Flags, Knoten, Story, Verbrauch } from "../types";
 import Figuren from "./Figuren";
+import Gedaechtnis from "./Gedaechtnis";
 import Inspektor from "./Inspektor";
 import Speicherstaende from "./Speicherstaende";
 import { Hinweis, Knopf, eingabeKlasse, geld } from "./ui";
@@ -53,6 +54,7 @@ export default function Spiel({
   const [letzterZug, setLetzterZug] = useState<{ modell: string; anbieter: string; usage: Verbrauch } | null>(null);
   const [reserveModell, setReserveModell] = useState("");
   const [figurenOffen, setFigurenOffen] = useState(false);
+  const [gedaechtnisOffen, setGedaechtnisOffen] = useState(false);
   // "regie" schickt den Text als Anweisung an den Erzähler statt als Handlung
   // der Spielerfigur.
   const [modus, setModus] = useState<"handlung" | "regie">("handlung");
@@ -261,6 +263,9 @@ export default function Spiel({
         </div>
         <Knopf onClick={() => setFigurenOffen(true)} titel="Figuren, Grenzen, Antriebe">
           Figuren
+        </Knopf>
+        <Knopf onClick={() => setGedaechtnisOffen(true)} titel="Chronik und Fakten">
+          Gedächtnis
         </Knopf>
         <Knopf onClick={() => story && promptBearbeiten(story)} titel="System-Prompt">
           Prompt
@@ -476,6 +481,13 @@ export default function Spiel({
               </Knopf>
             )}
             <Knopf
+              onClick={senden}
+              disabled={laufend || knoten.length === 0 || eingabe.trim() !== ""}
+              titel="Weitererzählen lassen, ohne selbst etwas beizutragen"
+            >
+              Weiter
+            </Knopf>
+            <Knopf
               onClick={vergleichStarten}
               disabled={laufend}
               titel="Zwei Modelle nebeneinander auf denselben Prompt"
@@ -492,6 +504,11 @@ export default function Spiel({
         offen={figurenOffen}
         schliessen={() => setFigurenOffen(false)}
         geaendert={ladePfad}
+      />
+      <Gedaechtnis
+        storyId={storyId}
+        offen={gedaechtnisOffen}
+        schliessen={() => setGedaechtnisOffen(false)}
       />
       <Inspektor nodeId={inspektor} schliessen={() => setInspektor(null)} />
     </div>

@@ -48,6 +48,18 @@ export default function Einstellungen({
 
   const setzen = (teil: Partial<Werte>) => setWerte((w) => (w ? { ...w, ...teil } : w));
 
+  // Die Allowlist gilt für jedes Erzählmodell. Wer das Modell wechselt und die
+  // Liste stehen lässt, bekommt beim nächsten Zug "kein Anbieter gefunden" -
+  // ein Fehler, in den man genau einmal tappt und dann jedes Mal wieder.
+  const anbieterKonflikt =
+    !!werte &&
+    werte.narratorProviders.length > 0 &&
+    !!werte.narratorModel &&
+    !werte.narratorProviders.some((p) =>
+      werte.narratorModel.toLowerCase().includes(p.toLowerCase().split("/")[0]),
+    ) &&
+    !werte.narratorModel.toLowerCase().includes("dolphin");
+
   async function speichern() {
     if (!werte) return;
     setFehler("");
@@ -137,6 +149,15 @@ export default function Einstellungen({
 
           <div className="space-y-4 rounded-lg border border-rand p-4">
             <h3 className="text-sm tracking-wide text-gedaempft uppercase">Anbieter und Datenschutz</h3>
+            {anbieterKonflikt && (
+              <div className="rounded-lg border border-amber-800/50 bg-amber-950/20 px-3 py-2 text-xs text-amber-100/90">
+                Das Erzählmodell <span className="font-mono">{werte.narratorModel}</span> gehört
+                vermutlich nicht zu <span className="font-mono">{werte.narratorProviders.join(", ")}</span>.
+                Die Liste gilt für jedes Erzählmodell — passt sie nicht, findet OpenRouter keinen
+                Anbieter und der Zug scheitert. Entweder das Feld leeren oder den passenden Anbieter
+                eintragen, danach „Alle drei testen".
+              </div>
+            )}
             <Feld
               label="Erlaubte Anbieter für die Erzählung"
               hinweis="Komma-getrennt. Leer heißt: OpenRouter darf frei wählen. Mit Eintrag gilt die Liste, und Ausweichrouten sind gesperrt."
@@ -200,6 +221,40 @@ export default function Einstellungen({
                   Spiegeln, unaufgefordertes Lob, bereitwillige Auskunft, weichgespülter Konflikt, keine
                   eigene Initiative, und ob der Text deine Figur spielt. Befunde erscheinen am Zug, der
                   Text bleibt stehen. Kostet rund ein Hundertstel Cent je Zug.
+                </span>
+              </span>
+            </label>
+          </div>
+
+          <div className="space-y-4 rounded-lg border border-rand p-4">
+            <h3 className="text-sm tracking-wide text-gedaempft uppercase">Gedächtnis</h3>
+            <label className="flex items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={werte.gedaechtnisAn}
+                onChange={(e) => setzen({ gedaechtnisAn: e.target.checked })}
+              />
+              <span>
+                Chronik und Fakten führen
+                <span className="mt-0.5 block text-xs text-gedaempft">
+                  Was aus dem wörtlichen Verlauf fällt, wird zusammengefasst statt vergessen; was
+                  dauerhaft gilt, landet im Faktenblatt und kommt bei Bedarf zurück in den Prompt.
+                </span>
+              </span>
+            </label>
+            <label className="flex items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={werte.faktenAutomatisch}
+                onChange={(e) => setzen({ faktenAutomatisch: e.target.checked })}
+              />
+              <span>
+                Neue Fakten ohne Rückfrage übernehmen
+                <span className="mt-0.5 block text-xs text-gedaempft">
+                  Aus heißt: Sie landen als Vorschlag im Gedächtnis und gelten erst, wenn du sie
+                  übernimmst. Sauberer, aber du musst regelmäßig durchsehen.
                 </span>
               </span>
             </label>

@@ -39,6 +39,14 @@ du auf - auch mitten in einer Bewegung.
 
 {{szene}}
 
+## Was bisher geschah
+
+{{chronik}}
+
+## Was dauerhaft gilt
+
+{{memories}}
+
 ## Regeln für die Figuren
 
 1. Jede Figur will etwas Eigenes und verfolgt es, oder sie hat einen Grund,

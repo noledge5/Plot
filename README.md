@@ -5,11 +5,11 @@ mit eigenem System-Prompt, Beziehungsmechanik, dauerhaftem Gedächtnis und
 Speicherständen. Ein Binary, eine SQLite-Datei, erreichbar von jedem Gerät im
 Tailnet.
 
-**Stand: M0 bis M2 sind fertig.** Spielbar mit Streaming, Turn-Baum,
+**Stand: M0 bis M3 sind fertig.** Spielbar mit Streaming, Turn-Baum,
 Speicherständen, Payload-Inspektor, Kostenanzeige und Modellvergleich; dazu
 Charakterkarten mit Grenzen und Antrieben, ein Prompt-Editor mit Platzhaltern
-und der Gefälligkeits-Detektor. Gedächtnis und die restliche Autonomie-Schicht
-folgen in M3–M5.
+der Gefälligkeits-Detektor, und ein Gedächtnis aus Chronik und Fakten. Die
+restliche Autonomie-Schicht folgt in M4–M5.
 
 ## Installation auf der Synology
 
@@ -60,6 +60,11 @@ die Oberfläche nie.
 - **Gefälligkeits-Detektor:** prüft jede Antwort gegen sieben Muster und hängt
   Befunde mit Zitat an den Zug, samt „nochmal, härter". Markiert wird, nicht
   verworfen.
+- **Gedächtnis:** Was aus dem wörtlichen Verlauf fällt, wird zusammengefasst
+  statt vergessen. Was dauerhaft gilt, landet als Fakt im Blatt — mit Herkunft
+  und Gültigkeitsspanne, damit „sie *war* Ärztin" darstellbar bleibt und ein
+  verworfener Zweig keine Erinnerungen hinterlässt. Abruf über Stichwortsuche,
+  Gewicht und Anwesenheit; alles von Hand korrigierbar.
 - **Regie statt Handlung:** Der Umschalter am Eingabefeld entscheidet, ob dein
   Text eine Handlung deiner Figur ist oder eine Anweisung an den Erzähler.
   Regieanweisungen gehen als Direktive in den Prompt, erscheinen im Verlauf

@@ -99,10 +99,21 @@ func (s *Server) pruefeGefaelligkeit(ctx context.Context, st *db.Story, knoten *
 		fmt.Fprintf(&musterliste, "%d. %s: %s\n", m.Nr, m.Kurz, m.Beschreibung)
 	}
 
-	persona, _, _ := s.db.Anwesende(st.ID)
+	persona, npcs, _ := s.db.Anwesende(st.ID)
 	spielerfigur := "die Figur des Spielers"
 	if persona != nil {
 		spielerfigur = persona.Name
+	}
+
+	// Ohne den Beziehungsstand meldet der Detektor jede Freundlichkeit unter
+	// Vertrauten als Gefälligkeit. Entgegenkommen ist kein Fehler, wenn das
+	// Verhältnis es trägt - es ist nur dann einer, wenn es unverdient kommt.
+	lage := ""
+	if pfad, err := s.db.Path(knoten.ID); err == nil {
+		if b := s.rendereBeziehungen(st, pfad, npcs); b != "" {
+			lage = "\n\nSo stehen die Figuren zum Spieler. Beurteile Entgegenkommen vor " +
+				"diesem Hintergrund: Was zu einem guten Verhältnis passt, ist keine Gefälligkeit.\n" + b
+		}
 	}
 
 	null := 0.0
@@ -110,7 +121,7 @@ func (s *Server) pruefeGefaelligkeit(ctx context.Context, st *db.Story, knoten *
 		Model: set.AnalystModel,
 		Messages: []openrouter.Message{
 			{Role: "system", Content: detektorAnweisung + "\n\nDie Muster:\n" + musterliste.String() +
-				"\nDie Figur des Spielers heißt: " + spielerfigur},
+				"\nDie Figur des Spielers heißt: " + spielerfigur + lage},
 			{Role: "user", Content: knoten.Content},
 		},
 		MaxTokens:   700,

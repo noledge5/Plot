@@ -5,7 +5,7 @@ mit eigenem System-Prompt, Beziehungsmechanik, dauerhaftem Gedächtnis und
 Speicherständen. Ein Binary, eine SQLite-Datei, erreichbar von jedem Gerät im
 Tailnet.
 
-**Stand: M0 bis M3 sind fertig.** Spielbar mit Streaming, Turn-Baum,
+**Stand: M0 bis M3 sind fertig, M4 zur Hälfte.** Spielbar mit Streaming, Turn-Baum,
 Speicherständen, Payload-Inspektor, Kostenanzeige und Modellvergleich; dazu
 Charakterkarten mit Grenzen und Antrieben, ein Prompt-Editor mit Platzhaltern
 der Gefälligkeits-Detektor, und ein Gedächtnis aus Chronik und Fakten. Die
@@ -65,6 +65,13 @@ die Oberfläche nie.
   und Gültigkeitsspanne, damit „sie *war* Ärztin" darstellbar bleibt und ein
   verworfener Zweig keine Erinnerungen hinterlässt. Abruf über Stichwortsuche,
   Gewicht und Anwesenheit; alles von Hand korrigierbar.
+- **Verhältnisse:** Jede Figur hat einen Ausgangspunkt — in Prosa und als Werte
+  auf neun Achsen. Der Beziehungsblock steht im Prompt *vor* den Verhaltensregeln
+  und setzt den Ton; die Regeln wandeln ihn nur ab. Nach jedem Zug schreibt der
+  Analyst fort, was sich bewegt hat, höchstens fünf Punkte je Achse.
+- **Zeitsprung und Wiedereinstieg:** Zeit vergehen lassen, entlang dessen, was
+  die Figuren wollen. Und beim Öffnen einer Geschichte eine Kurzfassung, wo du
+  stehst — ohne Modellaufruf.
 - **Regie statt Handlung:** Der Umschalter am Eingabefeld entscheidet, ob dein
   Text eine Handlung deiner Figur ist oder eine Anweisung an den Erzähler.
   Regieanweisungen gehen als Direktive in den Prompt, erscheinen im Verlauf

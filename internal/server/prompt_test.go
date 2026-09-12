@@ -22,7 +22,7 @@ func TestPlatzhalterWerdenGefuellt(t *testing.T) {
 	st := &db.Story{SystemPrompt: "Du bist Spielleiter.\n\n{{characters}}\n\n{{limits}}\n\n{{drives}}"}
 	mira := figur("Mira")
 	text, bloecke := baueSystemPrompt(st.SystemPrompt,
-		promptWerte(st, StorySettings{DruckSchwelle: 60}, nil, []db.Character{mira}, nil, "", nil))
+		promptWerte(st, StorySettings{DruckSchwelle: 60}, nil, []db.Character{mira}, nil, "", nil, ""))
 
 	if !strings.Contains(text, "Mira ist Wirtin.") {
 		t.Fatalf("Figurenblatt fehlt:\n%s", text)
@@ -44,7 +44,7 @@ func TestPlatzhalterWerdenGefuellt(t *testing.T) {
 // Text verschwindet - er soll im Editor auffallen.
 func TestUnbekannterPlatzhalterBleibtStehen(t *testing.T) {
 	st := &db.Story{SystemPrompt: "Hallo {{charaktere}} und {{characters}}"}
-	text, _ := baueSystemPrompt(st.SystemPrompt, promptWerte(st, StorySettings{}, nil, nil, nil, "", nil))
+	text, _ := baueSystemPrompt(st.SystemPrompt, promptWerte(st, StorySettings{}, nil, nil, nil, "", nil, ""))
 	if !strings.Contains(text, "{{charaktere}}") {
 		t.Fatalf("unbekannter Platzhalter wurde entfernt: %q", text)
 	}
@@ -98,7 +98,7 @@ func TestStilbeispielWirdAlsProbeGekennzeichnet(t *testing.T) {
 // im Prompt nach Fehler aus und kosten Tokens.
 func TestLeereBloeckeHinterlassenKeineLuecken(t *testing.T) {
 	st := &db.Story{SystemPrompt: "Anfang\n\n{{characters}}\n\n{{limits}}\n\n{{drives}}\n\nEnde"}
-	text, _ := baueSystemPrompt(st.SystemPrompt, promptWerte(st, StorySettings{}, nil, nil, nil, "", nil))
+	text, _ := baueSystemPrompt(st.SystemPrompt, promptWerte(st, StorySettings{}, nil, nil, nil, "", nil, ""))
 	if strings.Contains(text, "\n\n\n") {
 		t.Fatalf("Lücken im Prompt:\n%q", text)
 	}
@@ -201,5 +201,34 @@ func TestDoppelteFaktenWerdenErkannt(t *testing.T) {
 	}
 	if istDoppelt("Mira schuldet dem Wirt seit dem Frühjahr Geld.", vorhanden) {
 		t.Error("anderer Sachverhalt fälschlich als Dopplung verworfen")
+	}
+}
+
+// Ein Regelwerk, das nur beschreibt, wann eine Figur mauert, macht aus jeder
+// Figur eine abweisende. Beide Richtungen müssen besetzt sein.
+func TestBeziehungWirdInBeideRichtungenBeschrieben(t *testing.T) {
+	freundlich := rendereBeziehung("Mira", map[string]int{"trust": 70, "warmth": 80, "familiarity": 60})
+	if !strings.Contains(freundlich, "vertraut dir") || !strings.Contains(freundlich, "mag dich") {
+		t.Fatalf("gutes Verhältnis nicht beschrieben:\n%s", freundlich)
+	}
+	if strings.Contains(freundlich, "misstraut") {
+		t.Fatalf("Ablehnung bei gutem Verhältnis:\n%s", freundlich)
+	}
+
+	distanziert := rendereBeziehung("Mira", map[string]int{"trust": -60, "warmth": -40})
+	if !strings.Contains(distanziert, "misstraut dir") {
+		t.Fatalf("Misstrauen nicht beschrieben:\n%s", distanziert)
+	}
+
+	// Kleine Ausschläge sind Rauschen und würden den Prompt mit
+	// Widersprüchen füllen.
+	leise := rendereBeziehung("Mira", map[string]int{"trust": 10, "warmth": -15})
+	if leise != "" {
+		t.Fatalf("Rauschen landet im Prompt:\n%s", leise)
+	}
+
+	// Eine Figur ohne Angaben startet neutral, nicht ablehnend.
+	if neutral := rendereBeziehung("Mira", map[string]int{}); neutral != "" {
+		t.Fatalf("Figur ohne Angaben wird beschrieben:\n%s", neutral)
 	}
 }

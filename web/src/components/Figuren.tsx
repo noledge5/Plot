@@ -14,9 +14,16 @@ const ACHSEN_NAMEN: Record<string, string> = {
   fear: "Furcht",
 };
 
+// Die wichtigsten Achsen als Regler; der Rest bleibt eingeklappt, sonst
+// erschlägt das Blatt beim Anlegen einer Figur.
+const HAUPTACHSEN = ["trust", "warmth", "respect", "familiarity"] as const;
+const WEITERE_ACHSEN = ["attraction", "tension", "resentment", "obligation", "fear"] as const;
+
 const leeresBlatt: Blatt = {
   kern: "",
   sprechweise: "",
+  verhaeltnis: "",
+  beziehung: {},
   drives: [],
   hardLimits: [],
   softLimits: [],
@@ -30,6 +37,8 @@ function normiert(b: Blatt): Blatt {
   return {
     ...leeresBlatt,
     ...b,
+    verhaeltnis: b.verhaeltnis ?? "",
+    beziehung: b.beziehung ?? {},
     drives: b.drives ?? [],
     hardLimits: b.hardLimits ?? [],
     softLimits: b.softLimits ?? [],
@@ -101,6 +110,39 @@ function SchwelleWaehler({
         onChange={(e) => setzen({ [achse]: Number(e.target.value) })}
       />
       <span className="w-8 text-right">{wert}</span>
+    </div>
+  );
+}
+
+/** Zeigt den Wert als Verhalten an, nicht als Zahl — so wie er später im Prompt steht. */
+function Achsenregler({
+  achse,
+  wert,
+  setzen,
+}: {
+  achse: string;
+  wert: number;
+  setzen: (v: number) => void;
+}) {
+  const beschreibung =
+    wert >= 25
+      ? { trust: "vertraut dir", warmth: "mag dich", respect: "achtet dich", familiarity: "kennt dich gut", attraction: "fühlt sich hingezogen", tension: "ungeklärte Spannung", resentment: "trägt dir etwas nach", obligation: "steht in deiner Schuld", fear: "fürchtet dich" }[achse]
+      : wert <= -25
+        ? { trust: "misstraut dir", warmth: "kann dich nicht leiden", respect: "hält wenig von dir", familiarity: "ihr seid fremd", attraction: "findet dich abstoßend", tension: "—", resentment: "—", obligation: "du schuldest ihr etwas", fear: "—" }[achse]
+        : "neutral";
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-gedaempft">
+      <span className="w-24">{ACHSEN_NAMEN[achse] ?? achse}</span>
+      <input
+        type="range"
+        min={-100}
+        max={100}
+        step={5}
+        value={wert}
+        className="flex-1"
+        onChange={(e) => setzen(Number(e.target.value))}
+      />
+      <span className="w-40 text-right">{beschreibung}</span>
     </div>
   );
 }
@@ -250,6 +292,48 @@ export default function Figuren({
                 onChange={(e) => setzeBlatt({ sprechweise: e.target.value })}
               />
             </Feld>
+
+            {auswahl.rolle === "npc" && (
+              <div className="rounded-lg border border-rand p-3">
+                <h3 className="mb-2 text-sm tracking-wide text-gedaempft uppercase">
+                  Verhältnis zu deiner Figur
+                </h3>
+                <p className="mb-3 text-xs text-gedaempft">
+                  Der Ausgangspunkt, bevor irgendetwas geschieht. Ohne Angabe begegnet sie dir
+                  neutral — und die Verhaltensregeln im Prompt klingen dann leicht abweisend, weil
+                  ihnen die Grundlage fehlt.
+                </p>
+                <textarea
+                  className={`${eingabeKlasse} mb-3 min-h-20`}
+                  value={blatt.verhaeltnis}
+                  placeholder="Ihr kennt euch seit Jahren. Sie hat dir aus der Sache mit dem Zoll herausgeholfen und erwartet dafür nichts — aber sie vergisst es auch nicht."
+                  onChange={(e) => setzeBlatt({ verhaeltnis: e.target.value })}
+                />
+                <div className="space-y-2">
+                  {HAUPTACHSEN.map((a) => (
+                    <Achsenregler
+                      key={a}
+                      achse={a}
+                      wert={blatt.beziehung?.[a] ?? 0}
+                      setzen={(v) => setzeBlatt({ beziehung: { ...(blatt.beziehung ?? {}), [a]: v } })}
+                    />
+                  ))}
+                </div>
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs text-gedaempft">weitere Achsen</summary>
+                  <div className="mt-2 space-y-2">
+                    {WEITERE_ACHSEN.map((a) => (
+                      <Achsenregler
+                        key={a}
+                        achse={a}
+                        wert={blatt.beziehung?.[a] ?? 0}
+                        setzen={(v) => setzeBlatt({ beziehung: { ...(blatt.beziehung ?? {}), [a]: v } })}
+                      />
+                    ))}
+                  </div>
+                </details>
+              </div>
+            )}
 
             <div className="rounded-lg border border-rand p-3">
               <h3 className="mb-2 text-sm tracking-wide text-gedaempft uppercase">Antriebe</h3>

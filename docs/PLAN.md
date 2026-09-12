@@ -469,7 +469,7 @@ Jeder Meilenstein ist für sich benutzbar; nach M1 kannst du spielen.
 | **M1** ✅ | Chat mit Streaming, Knotenbaum, Speicherslots, Regenerate/Edit/Branch, Payload-Inspektor, Kostenanzeige, Modell-Vergleich | Spielbar, und du findest dein Modell für Deutsch |
 | **M2** ✅ | Charakterkarten inkl. Grenzen und Antrieben, Persona, Prompt-Editor, Token-Budget, **Gefälligkeits-Detektor** | Dein System-Prompt trägt das Spiel, Gefälligkeit wird sichtbar |
 | **M3** ✅ | Chronik, Fakten-Wiki mit Gültigkeitsspannen, Abruf über FTS5 | Figuren erinnern sich |
-| **M4** | Beziehungsachsen mit Deckelung, **Widerstandsbudget, Konzessionsprüfung, Antriebsdruck**, Beziehungs-Timeline | Figuren wehren sich und wollen etwas |
+| **M4** ◐ | Beziehungsachsen mit Deckelung und Ausgangswerten, Antriebsdruck, Beziehungsverlauf. Offen: Widerstandsbudget und Konzessionsprüfung | Figuren wehren sich und wollen etwas |
 | **M5** | Gruppenszenen, In-Game-Zeit, Zeitsprung-Zusammenfassung, Wissensmodell, Kontinuitätswarnungen | Die Welt hat mehr als eine Person darin |
 | **M6** | PWA-Politur, Export/Import, Volltextsuche über alle Stories | Alltagstauglich |
 
@@ -480,7 +480,7 @@ Jeder Meilenstein ist für sich benutzbar; nach M1 kannst du spielen.
 | Risiko | Gegenmaßnahme |
 |---|---|
 | Gefälligkeit setzt sich trotz allem durch | Vier Ebenen statt einer (§9); der Detektor macht es zumindest **sichtbar**, statt es schleichen zu lassen |
-| Autonomie-Schicht überschießt: Figuren werden stur statt lebendig | Alle Schwellen einstellbar; Budget gilt pro Szene, nicht global; Direktiven verlangen *Begründung*, nicht bloßes Nein |
+| Autonomie-Schicht überschießt: Figuren werden stur statt lebendig | **Im ersten Durchlauf eingetreten.** Ursache war nicht die Mechanik, sondern der Prompt: Sieben Regeln zogen alle Richtung Widerstand, ohne Gegengewicht. Jetzt setzt der Beziehungsblock den Ton *vor* den Regeln, und die Regeln wandeln ihn nur ab. Dazu Ausgangswerte je Figur, Deckelung bei ±5 je Zug und einstellbare Schwellen |
 | Deutsche Prosa enttäuscht beim gewählten Modell | Modell-Vergleich in M1, Modellwechsel als Knopf |
 | ZDR-Filter schränkt Modellauswahl spürbar ein | Bewusst akzeptiert (E7); Allowlist pro Story, damit du im Einzelfall lockern kannst |
 | Kosten laufen bei langen Kampagnen weg | Budget-Manager, Caching, Utility-Routing, Monatslimit |

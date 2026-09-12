@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/noledge5/plot/internal/db"
 	"github.com/noledge5/plot/internal/openrouter"
@@ -96,9 +97,12 @@ func (s *Server) erzaehlung(ctx context.Context, st *db.Story, elternID *int64, 
 	// und was dauerhaft gilt.
 	chronik := s.rendereChronik(st.ID, pfad)
 	fakten := s.abrufFakten(st, pfad, npcs, 12)
+	// Der Beziehungsblock steht im Prompt vor den Regeln: Er setzt den Ton,
+	// die Regeln wandeln ihn nur ab.
+	beziehungen := s.rendereBeziehungen(st, pfad, npcs)
 
 	system, bloecke := baueSystemPrompt(st.SystemPrompt,
-		promptWerte(st, storySet, persona, npcs, direktiven, chronik, fakten))
+		promptWerte(st, storySet, persona, npcs, direktiven, chronik, fakten, beziehungen))
 	msgs, abgeschnitten := baueNachrichten(system, pfad, set.MaxHistoryTurns)
 
 	temp := set.Temperature
@@ -216,6 +220,7 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 	// Analysten warten. Die Verbindung steht noch, also kommt beides nach.
 	s.pruefungNachreichen(strom, st, knoten, set)
 	s.gedaechtnisNachreichen(strom, st, knoten, set)
+	s.beziehungNachreichen(strom, st, knoten, set)
 }
 
 // pruefungNachreichen lässt den Detektor laufen und schickt das Ergebnis über
@@ -238,6 +243,29 @@ func (s *Server) gedaechtnisNachreichen(strom *sse, st *db.Story, knoten *db.Nod
 	if neu > 0 {
 		strom.sende("gedaechtnis", map[string]any{"nodeId": knoten.ID, "neueFakten": neu})
 	}
+}
+
+// beziehungNachreichen schreibt die Verhältnisse fort und meldet, was sich
+// bewegt hat.
+func (s *Server) beziehungNachreichen(strom *sse, st *db.Story, knoten *db.Node, set Settings) {
+	if !set.BeziehungenAn || strings.TrimSpace(set.AnalystModel) == "" {
+		return
+	}
+	_, npcs, err := s.db.Anwesende(st.ID)
+	if err != nil || len(npcs) == 0 {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	deltas := s.beziehungFortschreiben(ctx, st, knoten, npcs, set)
+	if len(deltas) == 0 {
+		return
+	}
+	pfad, _ := s.db.Path(knoten.ID)
+	strom.sende("beziehung", map[string]any{
+		"nodeId": knoten.ID, "deltas": deltas, "staende": s.staende(st, pfad, npcs),
+	})
 }
 
 // handleRegenerate erzeugt eine weitere Fassung desselben Zuges. Die bisherige
@@ -305,6 +333,7 @@ func (s *Server) handleRegenerate(w http.ResponseWriter, r *http.Request) {
 	})
 	s.pruefungNachreichen(strom, st, knoten, set)
 	s.gedaechtnisNachreichen(strom, st, knoten, set)
+	s.beziehungNachreichen(strom, st, knoten, set)
 }
 
 // handleCompare stellt zwei Modelle nebeneinander: derselbe Prompt, zwei

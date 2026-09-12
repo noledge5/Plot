@@ -13,6 +13,14 @@ type Sheet struct {
 	Kern        string `json:"kern"`        // wer sie ist, in zwei, drei Sätzen
 	Sprechweise string `json:"sprechweise"` // Satzbau, Wortwahl, Eigenheiten
 
+	// Verhaeltnis beschreibt in Prosa, wie diese Figur zur Spielerfigur steht,
+	// bevor irgendetwas geschieht. Ohne das spielt ein Modell die
+	// Reibungsregeln als Grundton und begrüßt alte Freunde wie Fremde.
+	Verhaeltnis string `json:"verhaeltnis"`
+	// Beziehung sind die Ausgangswerte der Achsen, -100 bis 100. Was hier
+	// nicht steht, startet bei 0 - also neutral, nicht ablehnend.
+	Beziehung map[string]int `json:"beziehung"`
+
 	// Drives sind das, was eine Figur von sich aus will. Ohne sie bleiben
 	// Figuren höflich abwartend, egal was im Prompt steht.
 	Drives []Drive `json:"drives"`

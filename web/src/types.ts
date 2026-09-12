@@ -32,6 +32,8 @@ export type Geheimnis = { text: string; preisgabeAb: Record<string, number> };
 export type Blatt = {
   kern: string;
   sprechweise: string;
+  verhaeltnis: string;
+  beziehung: Record<string, number> | null;
   drives: Antrieb[] | null;
   hardLimits: string[] | null;
   softLimits: WeicheGrenze[] | null;
@@ -92,6 +94,7 @@ export type Modell = {
 
 export type Einstellungen = {
   detektorAn: boolean;
+  beziehungenAn: boolean;
   gedaechtnisAn: boolean;
   faktenAutomatisch: boolean;
   narratorModel: string;

@@ -247,6 +247,22 @@ export default function Einstellungen({
               <input
                 type="checkbox"
                 className="mt-1"
+                checked={werte.beziehungenAn}
+                onChange={(e) => setzen({ beziehungenAn: e.target.checked })}
+              />
+              <span>
+                Verhältnisse fortschreiben
+                <span className="mt-0.5 block text-xs text-gedaempft">
+                  Nach jedem Zug beurteilt der Analyst, was sich zwischen den Figuren und dir bewegt
+                  hat — höchstens fünf Punkte je Achse und Zug, damit ein einzelner Satz kein
+                  Verhältnis umwirft.
+                </span>
+              </span>
+            </label>
+            <label className="flex items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
                 checked={werte.faktenAutomatisch}
                 onChange={(e) => setzen({ faktenAutomatisch: e.target.checked })}
               />

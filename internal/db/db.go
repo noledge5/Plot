@@ -174,6 +174,24 @@ CREATE INDEX idx_fact_story ON memory_fact(story_id, status);
 -- pflegen, und ein paar hundert Fakten wiegen nichts.
 CREATE VIRTUAL TABLE memory_fts USING fts5(text, betrifft);
 `,
+	// M4: Beziehungen. Die Werte werden nicht gespeichert, sondern aus den
+	// Deltas entlang des Pfades gefaltet - so gilt in einem verworfenen Zweig
+	// auch der Zustand nicht, der dort entstanden ist.
+	`
+CREATE TABLE rel_delta (
+	id         INTEGER PRIMARY KEY,
+	story_id   INTEGER NOT NULL REFERENCES story(id) ON DELETE CASCADE,
+	node_id    INTEGER NOT NULL REFERENCES node(id) ON DELETE CASCADE,
+	figur      TEXT NOT NULL,              -- wer empfindet
+	achse      TEXT NOT NULL,
+	delta      INTEGER NOT NULL,
+	begruendung TEXT NOT NULL DEFAULT '',
+	zitat      TEXT NOT NULL DEFAULT '',
+	created_at TEXT NOT NULL
+);
+CREATE INDEX idx_reldelta_story ON rel_delta(story_id);
+CREATE INDEX idx_reldelta_node  ON rel_delta(node_id);
+`,
 }
 
 func (d *DB) migrate() error {

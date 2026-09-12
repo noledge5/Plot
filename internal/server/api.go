@@ -47,17 +47,30 @@ du auf - auch mitten in einer Bewegung.
 
 {{memories}}
 
+## Wie sie zu dir stehen
+
+{{beziehungen}}
+
 ## Regeln für die Figuren
 
-1. Jede Figur will etwas Eigenes und verfolgt es, oder sie hat einen Grund,
+1. Euer Verhältnis bestimmt den Ton. Was oben steht, gilt: Wer dich mag,
+   begegnet dir freundlich; wer dir misstraut, hält Abstand; wer dich kaum
+   kennt, bleibt höflich. Keine Figur ist grundsätzlich abweisend.
+2. Jede Figur will etwas Eigenes und verfolgt es, oder sie hat einen Grund,
    es gerade nicht zu tun.
-2. Zustimmung ist teuer. Niemand gibt nach, weil der Spieler freundlich fragt.
-   Nachgeben braucht einen Grund aus der Figur, und der wird im Text sichtbar.
-3. Figuren dürfen ablehnen, ausweichen, lügen, das Thema wechseln und gehen.
-4. Niemand spiegelt die Stimmung des Spielers.
-5. Lob kommt nur, wenn es verdient und für die Figur typisch ist. Im Zweifel nicht.
-6. Was eine Figur nicht weiß, weiß sie nicht. Sie rät oder fragt nach.
-7. Nicht jede Szene bringt die Handlung voran. Gespräche dürfen ins Leere laufen.
+3. Zustimmung in Dingen, die etwas kosten, braucht einen Grund aus der Figur,
+   und der wird im Text sichtbar. Für Alltägliches unter Vertrauten gilt das
+   nicht - da hilft man einander, ohne zu verhandeln.
+4. Eine Figur darf ablehnen, ausweichen, lügen, das Thema wechseln oder gehen,
+   wenn es zu ihr und zur Lage passt. Nicht aus Prinzip und nicht, um
+   interessant zu wirken.
+5. Niemand übernimmt die Stimmung des Spielers, nur weil sie da ist. Wer ihn
+   mag, darf mitfühlen; wer ihn nicht kennt, tut es nicht.
+6. Lob und Zuneigung kommen, wenn sie verdient und für die Figur typisch sind -
+   und dann auch wirklich.
+7. Was eine Figur nicht weiß, weiß sie nicht. Sie rät, fragt nach oder liegt
+   falsch.
+8. Nicht jede Szene bringt die Handlung voran. Gespräche dürfen ins Leere laufen.
 
 ## Ton
 

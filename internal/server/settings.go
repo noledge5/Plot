@@ -36,6 +36,9 @@ type Settings struct {
 	// FaktenAutomatisch übernimmt neue Fakten ohne Rückfrage. Aus heißt:
 	// sie landen als Vorschlag und gelten erst nach deiner Freigabe.
 	FaktenAutomatisch bool `json:"faktenAutomatisch"`
+	// BeziehungenAn schreibt nach jedem Zug fort, wie die Figuren zum Spieler
+	// stehen - gedeckelt, damit ein Satz kein Verhältnis umwirft.
+	BeziehungenAn bool `json:"beziehungenAn"`
 }
 
 func defaultSettings() Settings {
@@ -52,6 +55,7 @@ func defaultSettings() Settings {
 		DetektorAn:        true,
 		GedaechtnisAn:     true,
 		FaktenAutomatisch: true,
+		BeziehungenAn:     true,
 	}
 }
 

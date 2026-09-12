@@ -79,6 +79,10 @@ func (s *Server) routes() {
 	geschuetzt.HandleFunc("POST /api/stories/{id}/turn", s.handleTurn)
 	geschuetzt.HandleFunc("POST /api/stories/{id}/regenerate", s.handleRegenerate)
 	geschuetzt.HandleFunc("POST /api/stories/{id}/compare", s.handleCompare)
+	geschuetzt.HandleFunc("POST /api/stories/{id}/zeitsprung", s.handleZeitsprung)
+	geschuetzt.HandleFunc("GET /api/stories/{id}/wiedereinstieg", s.handleWiedereinstieg)
+	geschuetzt.HandleFunc("GET /api/stories/{id}/beziehungen", s.handleBeziehungen)
+	geschuetzt.HandleFunc("DELETE /api/deltas/{id}", s.handleDeleteDelta)
 
 	s.mux.Handle("/api/", s.requireAuth(geschuetzt))
 	s.mux.Handle("/", s.static())

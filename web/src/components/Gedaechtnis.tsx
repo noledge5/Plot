@@ -1,6 +1,24 @@
 import { useEffect, useState } from "react";
 import { hole, schicke } from "../api";
 import type { Fakt, Gedaechtnis as Daten } from "../types";
+
+type Beziehungen = {
+  staende: Record<string, Record<string, number>>;
+  verlauf: { id: number; figur: string; achse: string; delta: number; begruendung: string; zitat: string }[];
+  text: string;
+};
+
+const ACHSEN_NAMEN: Record<string, string> = {
+  trust: "Vertrauen",
+  warmth: "Zuneigung",
+  attraction: "Anziehung",
+  respect: "Achtung",
+  familiarity: "Vertrautheit",
+  tension: "Spannung",
+  resentment: "Groll",
+  obligation: "Schuld",
+  fear: "Furcht",
+};
 import { Dialog, Hinweis, Knopf, eingabeKlasse } from "./ui";
 
 /**
@@ -22,16 +40,19 @@ export default function Gedaechtnis({
   const [fakten, setFakten] = useState<Fakt[]>([]);
   const [filter, setFilter] = useState<"alle" | "canon" | "proposed" | "retired">("alle");
   const [neu, setNeu] = useState({ betrifft: "", text: "" });
+  const [bez, setBez] = useState<Beziehungen | null>(null);
   const [fehler, setFehler] = useState("");
 
   async function laden() {
     try {
-      const [d, f] = await Promise.all([
+      const [d, f, b] = await Promise.all([
         hole<Daten>(`/api/stories/${storyId}/chronik`),
         hole<Fakt[]>(`/api/stories/${storyId}/facts`),
+        hole<Beziehungen>(`/api/stories/${storyId}/beziehungen`),
       ]);
       setDaten(d);
       setFakten(f);
+      setBez(b);
     } catch (e) {
       setFehler(e instanceof Error ? e.message : String(e));
     }
@@ -84,6 +105,74 @@ export default function Gedaechtnis({
   return (
     <Dialog titel="Gedächtnis" offen={offen} schliessen={schliessen} breit>
       <div className="space-y-6">
+        {bez && Object.keys(bez.staende).length > 0 && (
+          <section>
+            <h3 className="mb-2 text-sm tracking-wide text-gedaempft uppercase">
+              Wie sie zu dir stehen
+            </h3>
+            <div className="space-y-3">
+              {Object.entries(bez.staende).map(([name, achsen]) => (
+                <div key={name} className="rounded-lg border border-rand bg-grund p-3">
+                  <div className="mb-2 text-sm">{name}</div>
+                  <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
+                    {Object.entries(achsen)
+                      .filter(([, v]) => v !== 0)
+                      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+                      .map(([achse, wert]) => (
+                        <div key={achse} className="flex items-center gap-2 text-xs">
+                          <span className="w-20 text-gedaempft">{ACHSEN_NAMEN[achse] ?? achse}</span>
+                          <div className="relative h-1.5 flex-1 rounded bg-flaeche">
+                            <div
+                              className={`absolute top-0 h-1.5 rounded ${wert > 0 ? "bg-akzent/70" : "bg-red-500/60"}`}
+                              style={{
+                                left: wert > 0 ? "50%" : `${50 + wert / 2}%`,
+                                width: `${Math.abs(wert) / 2}%`,
+                              }}
+                            />
+                            <div className="absolute top-0 left-1/2 h-1.5 w-px bg-gedaempft/40" />
+                          </div>
+                          <span className="w-8 text-right text-gedaempft">{wert}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {bez.verlauf.length > 0 && (
+              <details className="mt-2">
+                <summary className="cursor-pointer text-xs text-gedaempft">
+                  Was sich zuletzt bewegt hat ({bez.verlauf.length})
+                </summary>
+                <ul className="mt-2 space-y-1">
+                  {bez.verlauf.slice(0, 12).map((d) => (
+                    <li key={d.id} className="flex items-start gap-2 text-xs text-gedaempft">
+                      <span className={d.delta > 0 ? "text-akzent" : "text-red-300"}>
+                        {d.delta > 0 ? "+" : ""}
+                        {d.delta}
+                      </span>
+                      <span className="w-20 shrink-0">{d.figur} · {ACHSEN_NAMEN[d.achse] ?? d.achse}</span>
+                      <span className="flex-1">
+                        {d.begruendung}
+                        {d.zitat && <span className="opacity-60"> „{d.zitat}“</span>}
+                      </span>
+                      <button
+                        className="hover:text-red-300"
+                        title="Diese Bewegung zurücknehmen"
+                        onClick={async () => {
+                          await schicke(`/api/deltas/${d.id}`, undefined, "DELETE");
+                          laden();
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </section>
+        )}
+
         <section>
           <h3 className="mb-2 text-sm tracking-wide text-gedaempft uppercase">Was bisher geschah</h3>
           {!daten?.chronik.length ? (

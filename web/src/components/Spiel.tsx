@@ -55,6 +55,15 @@ export default function Spiel({
   const [reserveModell, setReserveModell] = useState("");
   const [figurenOffen, setFigurenOffen] = useState(false);
   const [gedaechtnisOffen, setGedaechtnisOffen] = useState(false);
+  // Kurzfassung beim Öffnen: wo man steht, wer da ist, was offen war.
+  const [einstieg, setEinstieg] = useState<{
+    chronik: string;
+    zuletzt: string;
+    anwesend: string[];
+    wichtiges: { id: number; text: string }[];
+    zuege: number;
+  } | null>(null);
+  const [einstiegZu, setEinstiegZu] = useState(false);
   // "regie" schickt den Text als Anweisung an den Erzähler statt als Handlung
   // der Spielerfigur.
   const [modus, setModus] = useState<"handlung" | "regie">("handlung");
@@ -88,6 +97,10 @@ export default function Spiel({
 
   useEffect(() => {
     ladePfad();
+    setEinstiegZu(false);
+    hole<typeof einstieg>(`/api/stories/${storyId}/wiedereinstieg`)
+      .then((d) => setEinstieg(d && d.zuege > 2 ? d : null))
+      .catch(() => setEinstieg(null));
   }, [storyId]);
 
   // Für "mit dem Reservemodell wiederholen" - der Knopf muss wissen, welches
@@ -237,6 +250,21 @@ export default function Spiel({
     }
   }
 
+  async function zeitsprung() {
+    const spanne = window.prompt("Wie viel Zeit vergeht?", "drei Tage");
+    if (!spanne) return;
+    setFehler("");
+    setLaufend(true);
+    try {
+      await schicke(`/api/stories/${storyId}/zeitsprung`, { spanne });
+      await ladePfad();
+    } catch (e) {
+      setFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLaufend(false);
+    }
+  }
+
   async function fassungNehmen(nodeId: number | null) {
     if (nodeId === null) return;
     try {
@@ -278,6 +306,39 @@ export default function Spiel({
       <div className="flex min-h-0 flex-1">
         <main className="min-w-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-2xl px-4 py-6">
+            {einstieg && !einstiegZu && (
+              <div className="mb-6 rounded-lg border border-rand bg-flaeche/60 p-4">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h2 className="text-sm tracking-wide text-gedaempft uppercase">Wo du stehst</h2>
+                  <button
+                    className="text-xs text-gedaempft hover:text-text"
+                    onClick={() => setEinstiegZu(true)}
+                  >
+                    ausblenden
+                  </button>
+                </div>
+                {einstieg.chronik && (
+                  <p className="erzaehltext mb-2 text-sm text-text/80">{einstieg.chronik}</p>
+                )}
+                {einstieg.zuletzt && (
+                  <p className="erzaehltext mb-2 line-clamp-3 text-sm text-text/70">
+                    Zuletzt: {einstieg.zuletzt}
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gedaempft">
+                  {einstieg.anwesend.length > 0 && <span>In der Szene: {einstieg.anwesend.join(", ")}</span>}
+                  <span>{einstieg.zuege} Züge bisher</span>
+                </div>
+                {einstieg.wichtiges.length > 0 && (
+                  <ul className="mt-2 space-y-0.5 text-xs text-akzent/80">
+                    {einstieg.wichtiges.map((f) => (
+                      <li key={f.id}>• {f.text}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
             {knoten.length === 0 && !laufend && (
               <p className="text-sm text-gedaempft">
                 Beschreib den Anfang: wo du bist, wer da ist, was du tust. Der Erzähler übernimmt alles
@@ -288,7 +349,11 @@ export default function Spiel({
             <div className="space-y-6">
               {knoten.map((n) => (
                 <article key={n.id} className="group">
-                  {n.kind === "regie" ? (
+                  {n.kind === "timeskip" ? (
+                    <div className="erzaehltext border-y border-rand/60 py-3 text-sm text-text/70">
+                      {n.content}
+                    </div>
+                  ) : n.kind === "regie" ? (
                     <div className="flex gap-2 border-l-2 border-akzent/40 pl-3 text-[0.9rem] text-akzent/70 italic">
                       <span className="not-italic opacity-60">Regie:</span>
                       {n.content}
@@ -486,6 +551,9 @@ export default function Spiel({
               titel="Weitererzählen lassen, ohne selbst etwas beizutragen"
             >
               Weiter
+            </Knopf>
+            <Knopf onClick={zeitsprung} disabled={laufend || knoten.length === 0} titel="Zeit vergehen lassen">
+              Zeit
             </Knopf>
             <Knopf
               onClick={vergleichStarten}

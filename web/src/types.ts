@@ -13,6 +13,7 @@ export type StorySettings = {
   welt: string;
   autorNotiz: string;
   druckSchwelle: number;
+  erzaehlzeit: string;
 };
 
 export type Story = {

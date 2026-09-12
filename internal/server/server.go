@@ -60,6 +60,13 @@ func (s *Server) routes() {
 	geschuetzt.HandleFunc("POST /api/stories/{id}/characters", s.handleCreateCharacter)
 	geschuetzt.HandleFunc("PUT /api/characters/{id}", s.handleUpdateCharacter)
 	geschuetzt.HandleFunc("DELETE /api/characters/{id}", s.handleDeleteCharacter)
+
+	// Figurenbibliothek: Grundbeschreibungen, die über Geschichten hinweg
+	// gelten. Das Blatt wird beim Übernehmen kopiert, nicht verknüpft.
+	geschuetzt.HandleFunc("GET /api/bibliothek", s.handleBibliothek)
+	geschuetzt.HandleFunc("DELETE /api/bibliothek/{id}", s.handleFigurVergessen)
+	geschuetzt.HandleFunc("POST /api/characters/{id}/merken", s.handleFigurMerken)
+	geschuetzt.HandleFunc("POST /api/stories/{id}/characters/uebernehmen", s.handleFigurUebernehmen)
 	geschuetzt.HandleFunc("POST /api/stories/{id}/preview", s.handlePreview)
 	geschuetzt.HandleFunc("GET /api/stories/{id}/facts", s.handleListFacts)
 	geschuetzt.HandleFunc("POST /api/stories/{id}/facts", s.handleCreateFact)

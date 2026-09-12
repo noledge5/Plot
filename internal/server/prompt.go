@@ -75,15 +75,34 @@ type StorySettings struct {
 	AutorNotiz string `json:"autorNotiz"`
 	// DruckSchwelle: ab diesem Druckwert verfolgt eine Figur ihr Ziel aktiv.
 	DruckSchwelle int `json:"druckSchwelle"`
+	// Erzaehlzeit hält die Zeitform fest: "praesens", "praeteritum" oder
+	// "aus". Sie geht als Direktive mit, nicht nur als Satz im System-Prompt.
+	//
+	// Der Grund ist der Verlauf: Ein Modell setzt fort, was es sieht. Sobald
+	// zehn Absätze im Präteritum dastehen, gewinnt dieses Muster gegen eine
+	// Zeile weit oben im Prompt - besonders bei kleinen Modellen. Die
+	// Direktive steht am Ende, dort wo sie am stärksten wirkt.
+	Erzaehlzeit string `json:"erzaehlzeit"`
+}
+
+// zeitDirektive ist der Satz, der die Zeitform bei jedem Zug mitschickt.
+var zeitDirektive = map[string]string{
+	"praesens":    "Erzähle im Präsens, auch wenn frühere Absätze in der Vergangenheit stehen.",
+	"praeteritum": "Erzähle im Präteritum, auch wenn frühere Absätze in der Gegenwart stehen.",
 }
 
 func storySettings(s *db.Story) StorySettings {
-	set := StorySettings{DruckSchwelle: 60}
+	set := StorySettings{DruckSchwelle: 60, Erzaehlzeit: "praesens"}
 	if strings.TrimSpace(s.SettingsJSON) != "" {
 		_ = json.Unmarshal([]byte(s.SettingsJSON), &set)
 	}
 	if set.DruckSchwelle <= 0 {
 		set.DruckSchwelle = 60
+	}
+	// Eine Geschichte, die vor diesem Feld angelegt wurde, hat hier nichts
+	// stehen. Präsens ist die Vorgabe der Engine, also gilt sie auch dort.
+	if set.Erzaehlzeit == "" {
+		set.Erzaehlzeit = "praesens"
 	}
 	return set
 }
@@ -352,5 +371,21 @@ func baueNachrichten(system string, pfad []db.Node, maxTurns int) (msgs []openro
 		}
 		msgs = append(msgs, openrouter.Message{Role: rolle, Content: inhalt})
 	}
+
+	// Die letzte Nachricht muss von "user" kommen. Google lehnt eine Anfrage,
+	// die auf einer Assistenz-Nachricht endet, mit einem Provider-Fehler ab,
+	// andere Anbieter tun es auch. Genau das passiert bei "Weiter" (es kommt
+	// keine Eingabe dazu) und bei einer Regieanweisung (sie steht als
+	// Direktive im System-Prompt und wird hier übersprungen) - in beiden
+	// Fällen endet der Verlauf sonst auf der Antwort des Erzählers.
+	if len(msgs) == 0 || msgs[len(msgs)-1].Role != "user" {
+		msgs = append(msgs, openrouter.Message{Role: "user", Content: weitererzaehlen})
+	}
 	return msgs, abgeschnitten
 }
+
+// weitererzaehlen ist der Anstoß, der die Anfrage abschließt, wenn der Spieler
+// nichts beigetragen hat. Er steht in Klammern und benennt sich selbst als
+// Anstoß, damit das Modell ihn nicht als Satz der Spielerfigur liest.
+const weitererzaehlen = "(Erzähl weiter. Die Spielerfigur sagt und tut in diesem " +
+	"Moment nichts Neues - erzähle, was um sie herum geschieht.)"

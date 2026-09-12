@@ -167,8 +167,14 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 		"angemeldet":   s.angemeldet(r),
 		"keyGesetzt":   s.db.Setting("openrouter_key", "") != "",
 		"version":      s.version,
-		// Woran man erkennt, ob ein Update tatsächlich angekommen ist.
-		"koennen": []string{"figuren", "prompt-platzhalter", "stilbeispiel", "detektor"},
+		// Woran man erkennt, ob ein Update tatsächlich angekommen ist. Die
+		// Liste wächst mit jeder Fähigkeit, nach der jemand sucht - sie ist
+		// die Antwort auf "ist das Update schon drauf?", ohne SSH.
+		"koennen": []string{
+			"figuren", "prompt-platzhalter", "stilbeispiel", "detektor",
+			"chronik", "fakten", "beziehungen", "zeitsprung", "wiedereinstieg",
+			"regie", "dialog", "praesens", "figurenbibliothek",
+		},
 	})
 }
 

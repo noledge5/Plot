@@ -192,6 +192,26 @@ CREATE TABLE rel_delta (
 CREATE INDEX idx_reldelta_story ON rel_delta(story_id);
 CREATE INDEX idx_reldelta_node  ON rel_delta(node_id);
 `,
+	// Die Figurenbibliothek. Eine Figur gehört sonst genau einer Geschichte;
+	// wer dieselbe Person in einer zweiten Geschichte haben will, tippt ihr
+	// Blatt bisher neu ab - und bekommt eine Figur, die sich anders verhält.
+	// Hier liegt die Grundbeschreibung einmal, geschichtsunabhängig.
+	//
+	// Nur das Blatt wird geteilt, nicht der Beziehungsstand: Der entsteht aus
+	// den Deltas entlang eines Pfades und gehört zu genau einem Spielverlauf.
+	`
+CREATE TABLE figur_vorlage (
+	id         INTEGER PRIMARY KEY,
+	name       TEXT NOT NULL,
+	rolle      TEXT NOT NULL DEFAULT 'npc',  -- npc | persona
+	sheet_json TEXT NOT NULL DEFAULT '{}',
+	created_at TEXT NOT NULL,
+	updated_at TEXT NOT NULL
+);
+-- Ein Name je Rolle. Zweimal dieselbe Figur in der Bibliothek heißt zwei
+-- Fassungen, die auseinanderlaufen - genau das soll sie verhindern.
+CREATE UNIQUE INDEX idx_vorlage_name ON figur_vorlage(name, rolle);
+`,
 }
 
 func (d *DB) migrate() error {

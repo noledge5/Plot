@@ -90,8 +90,12 @@ func (s *Server) erzaehlung(ctx context.Context, st *db.Story, elternID *int64, 
 		return nil, nil, fmt.Errorf("Figuren lesen: %w", err)
 	}
 	// Regieanweisungen aus dem Verlauf kommen zu den Direktiven der Engine
-	// dazu und landen gemeinsam in {{directives}}.
+	// dazu und landen gemeinsam in {{directives}}. Die Zeitform steht vorn:
+	// Sie gilt für jeden Zug, alles andere nur für diesen.
 	direktiven = append(offeneRegie(pfad), direktiven...)
+	if satz := zeitDirektive[storySet.Erzaehlzeit]; satz != "" {
+		direktiven = append([]string{satz}, direktiven...)
+	}
 
 	// Chronik und Faktenblatt: was aus dem wörtlichen Verlauf gefallen ist,
 	// und was dauerhaft gilt.

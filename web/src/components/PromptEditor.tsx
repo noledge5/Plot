@@ -5,13 +5,49 @@ import { Dialog, Feld, Hinweis, Knopf, eingabeKlasse } from "./ui";
 
 type Vorlage = { systemPrompt: string; platzhalter: { name: string; was: string }[] };
 
+// Der Absatz, den die aktuelle Vorlage zur Erzählzeit führt.
+const PRAESENS_ABSATZ = `Erzählzeit Präsens: Du erzählst, was gerade geschieht, nicht, was geschehen
+ist. Die Figur des Spielers sprichst du mit "du" an, alle anderen Figuren in
+der dritten Person.`;
+
+/**
+ * Ersetzt nur die Aussage zur Erzählzeit und lässt alles andere stehen.
+ *
+ * Die ganze Vorlage zu übernehmen wirft weg, was der Nutzer selbst
+ * hineingeschrieben hat. Wer nur von Vergangenheit auf Gegenwart will, soll
+ * nicht seinen Prompt verlieren — deshalb dieser chirurgische Schnitt.
+ */
+function aufPraesens(prompt: string): string {
+  // Der Satz aus der alten Vorlage, wortgleich.
+  const alt = /Erzählzeit Präteritum, dritte Person\.?/;
+  if (alt.test(prompt)) return prompt.replace(alt, PRAESENS_ABSATZ);
+  // Freier formulierte Prompts: nur das Wort tauschen und die Klarstellung
+  // dahinter setzen, damit „dritte Person" nicht gegen „du" steht.
+  if (/Präteritum|Vergangenheit|Imperfekt/i.test(prompt)) {
+    return prompt.replace(/Präteritum|Vergangenheit|Imperfekt/gi, "Präsens");
+  }
+  return prompt;
+}
+
+/** Sagt, ob im Prompt überhaupt etwas auf Vergangenheit hindeutet. */
+function klingtNachVergangenheit(prompt: string): boolean {
+  return /Präteritum|Vergangenheit|Imperfekt/i.test(prompt);
+}
+
 const leereSettings: StorySettings = {
   stilbeispiel: "",
   szene: "",
   welt: "",
   autorNotiz: "",
   druckSchwelle: 60,
+  erzaehlzeit: "praesens",
 };
+
+const ZEITEN: { wert: string; name: string }[] = [
+  { wert: "praesens", name: "Präsens" },
+  { wert: "praeteritum", name: "Präteritum" },
+  { wert: "aus", name: "nicht vorgeben" },
+];
 
 /**
  * Der System-Prompt gehört dem Nutzer. Die Engine setzt nur ein, was er als
@@ -84,6 +120,11 @@ export default function PromptEditor({
   const platzhalter = vorlage?.platzhalter ?? [];
   const fehlend = platzhalter.filter((p) => !prompt.includes(`{{${p.name}}}`));
 
+  function erzaehlzeitUmstellen() {
+    setPrompt((t) => aufPraesens(t));
+    setVorschau(null);
+  }
+
   function vorlageUebernehmen() {
     if (!vorlage) return;
     const warnung =
@@ -112,6 +153,21 @@ export default function PromptEditor({
             spellCheck={false}
           />
         </Feld>
+
+        {klingtNachVergangenheit(prompt) && (
+          <div className="rounded-lg border border-amber-800/40 bg-amber-950/20 p-3 text-sm">
+            <p className="text-amber-100/90">
+              Deine Anweisung verlangt Vergangenheit. Solange sie das tut, erzählt das Modell in der
+              Vergangenheit — die Engine schreibt nichts in deinen Prompt hinein.
+            </p>
+            <Knopf klasse="mt-2" onClick={erzaehlzeitUmstellen}>
+              Erzählzeit auf Präsens
+            </Knopf>
+            <span className="ml-2 text-xs text-amber-100/50">
+              ändert nur diesen Satz, sonst nichts
+            </span>
+          </div>
+        )}
 
         {fehlend.length > 0 && (
           <div className="rounded-lg border border-amber-800/40 bg-amber-950/20 p-3 text-sm">
@@ -168,7 +224,7 @@ export default function PromptEditor({
           <textarea
             className={`${eingabeKlasse} min-h-32 leading-relaxed`}
             value={settings.stilbeispiel}
-            placeholder="Der Regen hörte auf, als sie die Tür hinter sich schloss. Sie blieb im Flur stehen, den Mantel noch an, und horchte …"
+            placeholder="Der Regen hört auf, als sie die Tür hinter sich schließt. Sie bleibt im Flur stehen, den Mantel noch an, und horcht …"
             onChange={(e) => setzen({ stilbeispiel: e.target.value })}
           />
         </Feld>
@@ -199,6 +255,29 @@ export default function PromptEditor({
               onChange={(e) => setzen({ autorNotiz: e.target.value })}
             />
           </Feld>
+          <Feld
+            label="Erzählzeit"
+            hinweis="Geht bei jedem Zug als Direktive mit. Nötig, weil ein Modell fortsetzt, was im Verlauf schon dasteht — ein Satz weit oben im Prompt verliert dagegen."
+          >
+            <div className="flex gap-1 text-sm">
+              {ZEITEN.map((z) => (
+                <button
+                  key={z.wert}
+                  onClick={() => setzen({ erzaehlzeit: z.wert })}
+                  className={`rounded px-2 py-1 transition-colors ${
+                    (settings.erzaehlzeit || "praesens") === z.wert
+                      ? "bg-akzent/15 text-akzent"
+                      : "text-gedaempft hover:text-text"
+                  }`}
+                >
+                  {z.name}
+                </button>
+              ))}
+            </div>
+          </Feld>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
           <Feld
             label={`Druckschwelle: ${settings.druckSchwelle}`}
             hinweis="Ab hier verfolgt eine Figur ihr Ziel aktiv, auch wenn es unpassend ist."

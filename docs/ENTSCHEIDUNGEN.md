@@ -25,6 +25,9 @@ nicht mehr als Option geführt.
 | E18 | **Erzählzeit Präsens** | Die Startvorlage erzählt, was gerade geschieht, nicht was geschehen ist. Gilt für neue Geschichten; bestehende holen sie sich im Prompt-Editor über „Vorlage übernehmen" |
 | E19 | **Drei Eingabemodi: Handlung, Gesagt, Regie** | Gesagtes geht in deutschen Anführungszeichen an das Modell — Prosa-Konvention statt erfundener Marke, weil kleine Modelle Anführungszeichen aus jedem Trainingskorpus kennen. Regie bleibt aus der Nachrichtenfolge heraus |
 | E20 | **Der System-Prompt einer Geschichte wird nie automatisch überschrieben** | Ein Update ändert nur die Vorlage für neue Geschichten. Der Editor sagt, welche Blöcke die Engine füllt, die im eigenen Prompt fehlen, und bietet die aktuelle Vorlage auf Knopfdruck an |
+| E21 | **Jede Anfrage endet auf einer Nachricht des Spielers** | Google lehnt eine Anfrage ab, die auf einer Assistenz-Nachricht endet — genau das entstand bei „Weiter" und bei Regie. Endet der Verlauf nicht beim Spieler, hängt die Engine einen Anstoß in Klammern an |
+| E22 | **Die Erzählzeit geht als Direktive mit, nicht nur als Satz im Prompt** | Ein Modell setzt fort, was im Verlauf steht. Zehn Absätze Präteritum gewinnen gegen eine Zeile weit oben — die Direktive steht am Ende, wo sie wirkt. Vorgabe Präsens, abschaltbar |
+| E23 | **Figurenbibliothek: Grundbeschreibung geschichtsübergreifend, Beziehungsstand nicht** | Das Blatt wird beim Übernehmen kopiert, nicht verknüpft. Was eine Figur in einer Geschichte erlebt, darf nicht in eine andere durchschlagen; ihr Kern soll überall derselbe sein |
 
 ## Was du wörtlich gesagt hast, und was ich daraus gemacht habe
 

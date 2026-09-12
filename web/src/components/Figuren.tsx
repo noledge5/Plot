@@ -3,6 +3,8 @@ import { hole, schicke } from "../api";
 import type { Antrieb, Blatt, Figur, Geheimnis, WeicheGrenze } from "../types";
 import { Dialog, Feld, Hinweis, Knopf, eingabeKlasse } from "./ui";
 
+type Vorlage = { id: number; name: string; rolle: string; sheet: Blatt };
+
 const ACHSEN = ["trust", "warmth", "attraction", "respect", "familiarity", "obligation", "fear"] as const;
 const ACHSEN_NAMEN: Record<string, string> = {
   trust: "Vertrauen",
@@ -164,13 +166,67 @@ export default function Figuren({
   const [name, setName] = useState("");
   const [aktiv, setAktiv] = useState(true);
   const [fehler, setFehler] = useState("");
+  // Grundbeschreibungen, die über Geschichten hinweg gelten.
+  const [bibliothek, setBibliothek] = useState<Vorlage[]>([]);
+  const [bibliothekOffen, setBibliothekOffen] = useState(false);
+  const [gemerkt, setGemerkt] = useState("");
 
   async function laden() {
     try {
-      setFiguren(await hole<Figur[]>(`/api/stories/${storyId}/characters`));
+      const [fs, vs] = await Promise.all([
+        hole<Figur[]>(`/api/stories/${storyId}/characters`),
+        hole<Vorlage[]>("/api/bibliothek"),
+      ]);
+      setFiguren(fs);
+      setBibliothek(vs);
     } catch (e) {
       setFehler(e instanceof Error ? e.message : String(e));
     }
+  }
+
+  /** Legt das Blatt der gewählten Figur in der Bibliothek ab. */
+  async function merken() {
+    if (!auswahl) return;
+    setFehler("");
+    try {
+      // Erst speichern: Sonst landet in der Bibliothek der Stand von vorhin
+      // und nicht das, was gerade in den Feldern steht.
+      await schicke(
+        `/api/characters/${auswahl.id}`,
+        { name, sheet: blatt, aktiv, sortierung: auswahl.sortierung },
+        "PUT",
+      );
+      await schicke(`/api/characters/${auswahl.id}/merken`);
+      await laden();
+      geaendert();
+      setGemerkt(name);
+      window.setTimeout(() => setGemerkt(""), 4000);
+    } catch (e) {
+      setFehler(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  /** Holt eine Figur aus der Bibliothek in diese Geschichte. */
+  async function uebernehmen(v: Vorlage) {
+    setFehler("");
+    try {
+      const f = await schicke<Figur>(`/api/stories/${storyId}/characters/uebernehmen`, {
+        vorlageId: v.id,
+      });
+      await laden();
+      geaendert();
+      setBibliothekOffen(false);
+      waehlen(f);
+    } catch (e) {
+      setFehler(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function vergessen(v: Vorlage) {
+    if (!window.confirm(`„${v.name}“ aus der Bibliothek entfernen? Figuren in Geschichten bleiben.`))
+      return;
+    await schicke(`/api/bibliothek/${v.id}`, undefined, "DELETE");
+    await laden();
   }
 
   useEffect(() => {
@@ -254,13 +310,66 @@ export default function Figuren({
               </Knopf>
             )}
           </div>
+
+          <div className="rounded-lg border border-rand p-2">
+            <button
+              className="flex w-full items-center justify-between text-xs tracking-wide text-gedaempft uppercase hover:text-text"
+              onClick={() => setBibliothekOffen((o) => !o)}
+            >
+              <span>Bibliothek</span>
+              <span className="normal-case">{bibliothek.length}</span>
+            </button>
+            {bibliothekOffen &&
+              (bibliothek.length === 0 ? (
+                <p className="mt-2 text-xs text-gedaempft">
+                  Noch leer. „In Bibliothek" legt eine Figur hier ab — danach lässt sie sich in jeder
+                  anderen Geschichte mit demselben Blatt übernehmen.
+                </p>
+              ) : (
+                <ul className="mt-2 space-y-1">
+                  {bibliothek.map((v) => {
+                    const schonDa = figuren.some(
+                      (f) => f.name.toLowerCase() === v.name.toLowerCase(),
+                    );
+                    return (
+                      <li key={v.id} className="flex items-center gap-1 text-sm">
+                        <button
+                          className="min-w-0 flex-1 truncate text-left hover:text-akzent disabled:opacity-40"
+                          disabled={schonDa}
+                          title={
+                            schonDa
+                              ? `${v.name} steht in dieser Geschichte schon`
+                              : `${v.name} in diese Geschichte übernehmen`
+                          }
+                          onClick={() => uebernehmen(v)}
+                        >
+                          {v.name}
+                          {v.rolle === "persona" && (
+                            <span className="text-xs text-gedaempft"> · Spielerfigur</span>
+                          )}
+                        </button>
+                        <button
+                          className="px-1 text-xs text-gedaempft hover:text-red-300"
+                          title="aus der Bibliothek entfernen"
+                          onClick={() => vergessen(v)}
+                        >
+                          ✕
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ))}
+          </div>
         </div>
 
         {!auswahl ? (
           <p className="text-sm text-gedaempft">
             Wähle links eine Figur oder leg eine neue an. Was hier in den Feldern steht, geht über die
             Platzhalter in deinen System-Prompt — Fließtext im Kern wird von kleinen Modellen eher
-            überlesen als eine benannte Liste.
+            überlesen als eine benannte Liste. Wer dieselbe Figur in mehreren Geschichten spielen
+            will, legt sie in die Bibliothek: Dort liegt ihre Grundbeschreibung einmal und lässt sich
+            überall übernehmen.
           </p>
         ) : (
           <div className="space-y-5">
@@ -536,13 +645,24 @@ export default function Figuren({
             </div>
 
             <Hinweis text={fehler} />
-            <div className="flex justify-between">
+            {gemerkt && (
+              <Hinweis text={`„${gemerkt}" liegt in der Bibliothek und lässt sich in jeder Geschichte übernehmen.`} art="gut" />
+            )}
+            <div className="flex flex-wrap justify-between gap-2">
               <Knopf art="gefahr" onClick={loeschen}>
                 Löschen
               </Knopf>
-              <Knopf art="haupt" onClick={speichern}>
-                Speichern
-              </Knopf>
+              <div className="flex gap-2">
+                <Knopf
+                  onClick={merken}
+                  titel="Grundbeschreibung geschichtsübergreifend ablegen — Beziehungsstand bleibt hier"
+                >
+                  In Bibliothek
+                </Knopf>
+                <Knopf art="haupt" onClick={speichern}>
+                  Speichern
+                </Knopf>
+              </div>
             </div>
           </div>
         )}

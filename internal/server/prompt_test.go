@@ -139,8 +139,10 @@ func TestRegieBleibtAusDerNachrichtenfolge(t *testing.T) {
 			t.Fatalf("Regieanweisung steht in der Nachrichtenfolge: %+v", m)
 		}
 	}
-	if len(msgs) != 3 { // System + zwei Züge
-		t.Fatalf("Nachrichten = %d, erwartet 3", len(msgs))
+	// System + zwei Züge + der Anstoß, der die Anfrage beim Spieler enden
+	// lässt (siehe TestNachrichtenEndenImmerBeimSpieler).
+	if len(msgs) != 4 {
+		t.Fatalf("Nachrichten = %d, erwartet 4", len(msgs))
 	}
 }
 
@@ -271,5 +273,71 @@ func TestHandlungBleibtUnveraendert(t *testing.T) {
 	msgs, _ := baueNachrichten("", pfad, 20)
 	if msgs[0].Content != "Ich gehe in die Küche." {
 		t.Fatalf("Handlung = %q", msgs[0].Content)
+	}
+}
+
+// Weiter und Regie schicken keine Eingabe mit. Ohne Abschluss endet der
+// Verlauf dann auf der Antwort des Erzählers - Google lehnt das als
+// Provider-Fehler ab.
+func TestNachrichtenEndenImmerBeimSpieler(t *testing.T) {
+	faelle := map[string][]db.Node{
+		"Weiter nach einer Antwort": {
+			{Kind: "turn", Role: "user", Content: "Ich klopfe an."},
+			{Kind: "turn", Role: "assistant", Content: "Niemand öffnet."},
+		},
+		"Regie nach einer Antwort": {
+			{Kind: "turn", Role: "assistant", Content: "Niemand öffnet."},
+			{Kind: KindRegie, Role: "user", Content: "Lass die Szene enden."},
+		},
+		"Regie als erster Zug": {
+			{Kind: KindRegie, Role: "user", Content: "Fang im Regen an."},
+		},
+		"gar nichts": {},
+	}
+	for name, pfad := range faelle {
+		msgs, _ := baueNachrichten("System", pfad, 20)
+		letzte := msgs[len(msgs)-1]
+		if letzte.Role != "user" {
+			t.Errorf("%s: letzte Nachricht ist %q, erwartet user", name, letzte.Role)
+		}
+		if letzte.Content != weitererzaehlen {
+			t.Errorf("%s: Abschluss = %q", name, letzte.Content)
+		}
+	}
+}
+
+// Wenn der Spieler etwas beiträgt, darf kein Anstoß dazukommen.
+func TestKeinAnstossWennDerSpielerSchreibt(t *testing.T) {
+	pfad := []db.Node{
+		{Kind: "turn", Role: "assistant", Content: "Niemand öffnet."},
+		{Kind: "turn", Role: "user", Content: "Ich klopfe noch einmal."},
+	}
+	msgs, _ := baueNachrichten("System", pfad, 20)
+	if len(msgs) != 3 {
+		t.Fatalf("Nachrichten = %d, erwartet 3", len(msgs))
+	}
+	if msgs[2].Content != "Ich klopfe noch einmal." {
+		t.Fatalf("letzte Nachricht = %q", msgs[2].Content)
+	}
+}
+
+// Die Zeitform geht bei jedem Zug als Direktive mit. Ein Satz weit oben im
+// Prompt verliert gegen zehn Absätze Verlauf in der anderen Zeitform.
+func TestErzaehlzeitVorgabeIstPraesens(t *testing.T) {
+	if got := storySettings(&db.Story{}); got.Erzaehlzeit != "praesens" {
+		t.Fatalf("Vorgabe = %q, erwartet praesens", got.Erzaehlzeit)
+	}
+	// Auch für eine Geschichte, die vor dem Feld angelegt wurde.
+	alt := &db.Story{SettingsJSON: `{"druckSchwelle":70}`}
+	if got := storySettings(alt); got.Erzaehlzeit != "praesens" {
+		t.Fatalf("alte Geschichte = %q, erwartet praesens", got.Erzaehlzeit)
+	}
+	// Wer sie abschaltet, bekommt keine Direktive.
+	aus := &db.Story{SettingsJSON: `{"erzaehlzeit":"aus"}`}
+	if satz := zeitDirektive[storySettings(aus).Erzaehlzeit]; satz != "" {
+		t.Fatalf("abgeschaltet, trotzdem Direktive: %q", satz)
+	}
+	if zeitDirektive["praeteritum"] == "" {
+		t.Fatal("Präteritum ohne Direktive")
 	}
 }

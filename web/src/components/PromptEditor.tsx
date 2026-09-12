@@ -1,19 +1,9 @@
 import { useEffect, useState } from "react";
-import { schicke } from "../api";
+import { hole, schicke } from "../api";
 import type { PromptBlock, Story, StorySettings } from "../types";
 import { Dialog, Feld, Hinweis, Knopf, eingabeKlasse } from "./ui";
 
-const PLATZHALTER: { name: string; was: string }[] = [
-  { name: "persona", was: "Blatt deiner Figur" },
-  { name: "characters", was: "Blätter der anwesenden Figuren" },
-  { name: "limits", was: "Grenzen und Geheimnisse, als Liste" },
-  { name: "drives", was: "was die Figuren wollen" },
-  { name: "stilbeispiel", was: "deine Tonprobe" },
-  { name: "welt", was: "Hintergrund" },
-  { name: "szene", was: "Ort, Zeit, Lage" },
-  { name: "directives", was: "Regieanweisung der Engine" },
-  { name: "autornotiz", was: "deine Anweisung für den nächsten Zug" },
-];
+type Vorlage = { systemPrompt: string; platzhalter: { name: string; was: string }[] };
 
 const leereSettings: StorySettings = {
   stilbeispiel: "",
@@ -44,6 +34,17 @@ export default function PromptEditor({
   const [vorschau, setVorschau] = useState<{ text: string; tokens: number; bloecke: PromptBlock[] } | null>(
     null,
   );
+  // Die Engine kennt mehr Blöcke, als in einem alten Prompt stehen können:
+  // Eine Geschichte behält ihren Prompt für immer, sonst überschriebe ein
+  // Update den Text des Nutzers. Also holen wir die aktuelle Vorlage und
+  // sagen, welcher Block fehlt.
+  const [vorlage, setVorlage] = useState<Vorlage | null>(null);
+
+  useEffect(() => {
+    hole<Vorlage>("/api/vorlage")
+      .then(setVorlage)
+      .catch(() => setVorlage(null));
+  }, []);
 
   useEffect(() => {
     if (!story) return;
@@ -80,6 +81,19 @@ export default function PromptEditor({
 
   const setzen = (teil: Partial<StorySettings>) => setSettings((s) => ({ ...s, ...teil }));
 
+  const platzhalter = vorlage?.platzhalter ?? [];
+  const fehlend = platzhalter.filter((p) => !prompt.includes(`{{${p.name}}}`));
+
+  function vorlageUebernehmen() {
+    if (!vorlage) return;
+    const warnung =
+      "Deine Anweisung wird durch die aktuelle Vorlage ersetzt. " +
+      "Was du selbst hineingeschrieben hast, ist danach weg. Fortfahren?";
+    if (!window.confirm(warnung)) return;
+    setPrompt(vorlage.systemPrompt);
+    setVorschau(null);
+  }
+
   return (
     <Dialog titel="System-Prompt" offen={story !== null} schliessen={schliessen} breit>
       <div className="space-y-5">
@@ -99,10 +113,25 @@ export default function PromptEditor({
           />
         </Feld>
 
+        {fehlend.length > 0 && (
+          <div className="rounded-lg border border-amber-800/40 bg-amber-950/20 p-3 text-sm">
+            <p className="text-amber-100/90">
+              Diese Blöcke füllt die Engine, aber sie stehen nicht in deiner Anweisung — ihr Inhalt
+              geht nicht an das Modell:{" "}
+              <span className="font-mono text-xs">
+                {fehlend.map((p) => `{{${p.name}}}`).join(", ")}
+              </span>
+            </p>
+            <p className="mt-1 text-xs text-amber-100/60">
+              Einzeln unten anhängen — oder unten die aktuelle Vorlage übernehmen.
+            </p>
+          </div>
+        )}
+
         <div className="rounded-lg border border-rand p-3">
           <h3 className="mb-2 text-sm tracking-wide text-gedaempft uppercase">Platzhalter</h3>
           <div className="flex flex-wrap gap-2">
-            {PLATZHALTER.map((p) => {
+            {platzhalter.map((p) => {
               const drin = prompt.includes(`{{${p.name}}}`);
               return (
                 <button
@@ -120,6 +149,16 @@ export default function PromptEditor({
               );
             })}
           </div>
+          {vorlage && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-rand pt-3">
+              <p className="text-xs text-gedaempft">
+                Deine Geschichte behält ihre Anweisung für immer — ein Update überschreibt nie, was
+                du geschrieben hast. Wenn du den aktuellen Stand der Engine willst, hol ihn dir
+                hier.
+              </p>
+              <Knopf onClick={vorlageUebernehmen}>Vorlage übernehmen</Knopf>
+            </div>
+          )}
         </div>
 
         <Feld

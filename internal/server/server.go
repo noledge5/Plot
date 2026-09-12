@@ -48,6 +48,8 @@ func (s *Server) routes() {
 	geschuetzt.HandleFunc("GET /api/models", s.handleModels)
 	geschuetzt.HandleFunc("POST /api/routing-test", s.handleRoutingTest)
 
+	geschuetzt.HandleFunc("GET /api/vorlage", s.handleVorlage)
+
 	geschuetzt.HandleFunc("GET /api/stories", s.handleListStories)
 	geschuetzt.HandleFunc("POST /api/stories", s.handleCreateStory)
 	geschuetzt.HandleFunc("GET /api/stories/{id}", s.handleGetStory)

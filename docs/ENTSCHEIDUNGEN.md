@@ -22,6 +22,9 @@ nicht mehr als Option geführt.
 | E15 | **Zugriff über Tailscale, ohne Reverse Proxy** | WireGuard verschlüsselt bereits; kein Zertifikat nötig. App-Login bleibt trotzdem |
 | E16 | **ZDR nur für den Analysten, Erzähler über Provider-Allowlist** | Löst den Konflikt aus modelle.md §2: Venice bleibt für die Erzählung erlaubt, alle anderen Anbieter gesperrt |
 | E17 | **Retrieval startet mit FTS5, Vektoren erst bei Bedarf** | Folge aus E14: `sqlite-vec` als arm64-Modul ist Mehraufwand, den BM25 auf dieser Hardware vermutlich erspart. Entscheidung fällt in M3 |
+| E18 | **Erzählzeit Präsens** | Die Startvorlage erzählt, was gerade geschieht, nicht was geschehen ist. Gilt für neue Geschichten; bestehende holen sie sich im Prompt-Editor über „Vorlage übernehmen" |
+| E19 | **Drei Eingabemodi: Handlung, Gesagt, Regie** | Gesagtes geht in deutschen Anführungszeichen an das Modell — Prosa-Konvention statt erfundener Marke, weil kleine Modelle Anführungszeichen aus jedem Trainingskorpus kennen. Regie bleibt aus der Nachrichtenfolge heraus |
+| E20 | **Der System-Prompt einer Geschichte wird nie automatisch überschrieben** | Ein Update ändert nur die Vorlage für neue Geschichten. Der Editor sagt, welche Blöcke die Engine füllt, die im eigenen Prompt fehlen, und bietet die aktuelle Vorlage auf Knopfdruck an |
 
 ## Was du wörtlich gesagt hast, und was ich daraus gemacht habe
 

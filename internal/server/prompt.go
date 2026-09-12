@@ -15,6 +15,33 @@ import (
 // keine Handlung der Spielerfigur.
 const KindRegie = "regie"
 
+// KindDialog kennzeichnet Knoten, die wörtliche Rede der Spielerfigur sind.
+// Gespeichert wird der Satz ohne Anführungszeichen; erst beim Bauen der
+// Nachrichten kommen sie dazu (siehe alsRede). So bleibt der Text änderbar,
+// ohne dass sich Anführungszeichen verdoppeln.
+const KindDialog = "dialog"
+
+// redeZeichen sind die Paare, die ein Spieler typischerweise selbst tippt.
+// Steht der Satz schon in einem davon, wird er nicht noch einmal eingefasst.
+var redeZeichen = [][2]string{{"„", "“"}, {"\"", "\""}, {"»", "«"}, {"“", "”"}, {"'", "'"}}
+
+// alsRede fasst einen Satz in deutsche Anführungszeichen. Für kleine Modelle
+// ist das die verlässlichste Art zu zeigen, dass der Spieler etwas sagt und
+// nicht tut - Anführungszeichen sind Prosa-Konvention und stehen in jedem
+// Trainingskorpus, eine erfundene Marke wie [SAGT] nicht.
+func alsRede(text string) string {
+	t := strings.TrimSpace(text)
+	if t == "" {
+		return ""
+	}
+	for _, paar := range redeZeichen {
+		if strings.HasPrefix(t, paar[0]) && strings.HasSuffix(t, paar[1]) && len(t) > len(paar[0])+len(paar[1])-1 {
+			return t
+		}
+	}
+	return "„" + t + "“"
+}
+
 // offeneRegie sammelt die Regieanweisungen, die seit der letzten Antwort
 // dazugekommen sind. Sie gelten für den nächsten Zug und danach nicht mehr -
 // sonst häufen sich Anweisungen an, die längst erledigt sind.
@@ -316,7 +343,14 @@ func baueNachrichten(system string, pfad []db.Node, maxTurns int) (msgs []openro
 		if strings.TrimSpace(n.Content) == "" {
 			continue
 		}
-		msgs = append(msgs, openrouter.Message{Role: rolle, Content: n.Content})
+		inhalt := n.Content
+		// Gesagtes geht in Anführungszeichen raus. Ohne sie liest ein kleines
+		// Modell "Ist noch Kaffee da?" genauso oft als Gedanke oder als Frage
+		// an den Erzähler wie als Satz, den die Figur ausspricht.
+		if n.Kind == KindDialog {
+			inhalt = alsRede(inhalt)
+		}
+		msgs = append(msgs, openrouter.Message{Role: rolle, Content: inhalt})
 	}
 	return msgs, abgeschnitten
 }

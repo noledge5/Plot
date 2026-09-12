@@ -74,8 +74,13 @@ du auf - auch mitten in einer Bewegung.
 
 ## Ton
 
-Erzählzeit Präteritum, dritte Person. Zeige, was geschieht; erkläre nicht,
-was es bedeutet.
+Erzählzeit Präsens: Du erzählst, was gerade geschieht, nicht, was geschehen
+ist. Die Figur des Spielers sprichst du mit "du" an, alle anderen Figuren in
+der dritten Person. Zeige, was geschieht; erkläre nicht, was es bedeutet.
+
+Wörtliche Rede steht in Anführungszeichen. Was der Spieler in
+Anführungszeichen schreibt, hat seine Figur genau so gesagt: Nimm es als
+gesprochen hin, formuliere es nicht um und gib es nicht noch einmal wieder.
 
 {{stilbeispiel}}
 
@@ -85,6 +90,40 @@ was es bedeutet.
 
 {{autornotiz}}
 `
+
+// platzhalterListe nennt jeden Block, den die Engine füllen kann, mit einer
+// Zeile dazu, was drinsteht. Die Liste steht hier und nicht im Frontend, damit
+// ein neuer Platzhalter nicht an zwei Stellen gepflegt werden muss - und damit
+// der Editor zuverlässig warnen kann, welcher Block fehlt.
+var platzhalterListe = []struct {
+	Name string `json:"name"`
+	Was  string `json:"was"`
+}{
+	{"persona", "Blatt deiner Figur"},
+	{"characters", "Blätter der anwesenden Figuren"},
+	{"limits", "Grenzen und Geheimnisse, als Liste"},
+	{"drives", "was die Figuren wollen"},
+	{"beziehungen", "wie die Figuren zu dir stehen"},
+	{"chronik", "was bisher geschah, zusammengefasst"},
+	{"memories", "Fakten, die dauerhaft gelten"},
+	{"stilbeispiel", "deine Tonprobe"},
+	{"welt", "Hintergrund"},
+	{"szene", "Ort, Zeit, Lage"},
+	{"directives", "Regieanweisung der Engine und offene Regie aus dem Spiel"},
+	{"autornotiz", "deine Anweisung für den nächsten Zug"},
+}
+
+// handleVorlage liefert die aktuelle Startvorlage und die Liste der
+// Platzhalter. Eine Geschichte behält ihren System-Prompt für immer - sonst
+// würde ein Update den Text überschreiben, den der Nutzer geschrieben hat.
+// Damit ältere Geschichten trotzdem an neue Blöcke kommen, kann der Editor
+// hier nachfragen und die Vorlage auf Knopfdruck übernehmen.
+func (s *Server) handleVorlage(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{
+		"systemPrompt": startPrompt,
+		"platzhalter":  platzhalterListe,
+	})
+}
 
 func (s *Server) handleListStories(w http.ResponseWriter, r *http.Request) {
 	st, err := s.db.Stories()

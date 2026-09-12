@@ -232,3 +232,44 @@ func TestBeziehungWirdInBeideRichtungenBeschrieben(t *testing.T) {
 		t.Fatalf("Figur ohne Angaben wird beschrieben:\n%s", neutral)
 	}
 }
+
+// Gesagtes geht in Anführungszeichen raus. Ohne sie liest ein kleines Modell
+// denselben Satz genauso oft als Gedanke oder als Frage an den Erzähler.
+func TestDialogGehtInAnfuehrungszeichen(t *testing.T) {
+	pfad := []db.Node{
+		{Kind: KindDialog, Role: "user", Content: "Ist noch Kaffee da?"},
+	}
+	msgs, _ := baueNachrichten("System", pfad, 20)
+	if len(msgs) != 2 {
+		t.Fatalf("Nachrichten = %d, erwartet 2", len(msgs))
+	}
+	if msgs[1].Content != "„Ist noch Kaffee da?“" {
+		t.Fatalf("Rede = %q", msgs[1].Content)
+	}
+}
+
+// Wer selbst Anführungszeichen tippt, soll sie nicht doppelt bekommen.
+func TestDialogVerdoppeltKeineAnfuehrungszeichen(t *testing.T) {
+	faelle := map[string]string{
+		"„Setz dich.“":  "„Setz dich.“",
+		`"Setz dich."`:  `"Setz dich."`,
+		"»Setz dich.«":  "»Setz dich.«",
+		"  Setz dich. ": "„Setz dich.“",
+		// Ein Anführungszeichen mitten im Satz fasst nichts ein.
+		`Sie sagte "nein", also gehe ich.`: `„Sie sagte "nein", also gehe ich.“`,
+	}
+	for ein, soll := range faelle {
+		if got := alsRede(ein); got != soll {
+			t.Errorf("alsRede(%q) = %q, erwartet %q", ein, got, soll)
+		}
+	}
+}
+
+// Eine Handlung bleibt eine Handlung: keine Anführungszeichen.
+func TestHandlungBleibtUnveraendert(t *testing.T) {
+	pfad := []db.Node{{Kind: "turn", Role: "user", Content: "Ich gehe in die Küche."}}
+	msgs, _ := baueNachrichten("", pfad, 20)
+	if msgs[0].Content != "Ich gehe in die Küche." {
+		t.Fatalf("Handlung = %q", msgs[0].Content)
+	}
+}

@@ -64,7 +64,11 @@ func (s *Server) chronikNachziehen(ctx context.Context, st *db.Story, pfad []db.
 		if n.Kind == KindRegie {
 			continue
 		}
-		fmt.Fprintf(&text, "[%s] %s\n\n", wer, n.Content)
+		inhalt := n.Content
+		if n.Kind == KindDialog {
+			inhalt = alsRede(inhalt)
+		}
+		fmt.Fprintf(&text, "[%s] %s\n\n", wer, inhalt)
 	}
 
 	null := 0.0

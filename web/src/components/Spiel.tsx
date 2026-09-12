@@ -9,6 +9,32 @@ import { Hinweis, Knopf, eingabeKlasse, geld } from "./ui";
 
 type PfadAntwort = { story: Story; knoten: Knoten[]; kosten: number; aufrufe: number };
 
+type Modus = "handlung" | "dialog" | "regie";
+
+const MODI: { wert: Modus; name: string; hilfe: string }[] = [
+  { wert: "handlung", name: "Handlung", hilfe: "Was deine Figur tut" },
+  {
+    wert: "dialog",
+    name: "Gesagt",
+    hilfe: "Was deine Figur laut sagt — geht in Anführungszeichen raus",
+  },
+  {
+    wert: "regie",
+    name: "Regie",
+    hilfe: "Anweisung an den Erzähler — steht nicht in der Geschichte",
+  },
+];
+
+/** Der zuletzt benutzte Modus überlebt einen Seitenwechsel. */
+const gemerkterModus: Modus = (() => {
+  try {
+    const m = localStorage.getItem("plot.modus");
+    return m === "dialog" || m === "regie" ? m : "handlung";
+  } catch {
+    return "handlung";
+  }
+})();
+
 type Vergleich = {
   aktiv: boolean;
   modellA: string;
@@ -65,8 +91,13 @@ export default function Spiel({
   } | null>(null);
   const [einstiegZu, setEinstiegZu] = useState(false);
   // "regie" schickt den Text als Anweisung an den Erzähler statt als Handlung
-  // der Spielerfigur.
-  const [modus, setModus] = useState<"handlung" | "regie">("handlung");
+  // der Spielerfigur, "dialog" als wörtliche Rede in Anführungszeichen.
+  const [modus, setModus] = useState<Modus>(gemerkterModus);
+  // Was gerade abgeschickt wurde, steht sofort im Verlauf - sonst verschwindet
+  // der eigene Satz aus dem Feld und taucht erst wieder auf, wenn der Erzähler
+  // fertig ist. Bei einem kleinen Modell sind das zwanzig Sekunden, in denen
+  // man glaubt, die Eingabe sei verloren gegangen.
+  const [unterwegs, setUnterwegs] = useState<{ text: string; modus: Modus } | null>(null);
   // Befunde des Detektors je Knoten. Sie kommen beim Laden aus dem Verlauf und
   // während eines Zuges als eigenes Ereignis nach.
   const [befunde, setBefunde] = useState<Record<number, Flags>>({});
@@ -113,7 +144,15 @@ export default function Spiel({
 
   useEffect(() => {
     ende.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [knoten.length, teilText, vergleich.textA, vergleich.textB]);
+  }, [knoten.length, teilText, unterwegs, vergleich.textA, vergleich.textB]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("plot.modus", modus);
+    } catch {
+      /* privater Modus ohne Speicher - dann eben nicht */
+    }
+  }, [modus]);
 
   const letzterKnoten = knoten.length ? knoten[knoten.length - 1] : null;
 
@@ -124,6 +163,7 @@ export default function Spiel({
     setTeilText("");
     setLaufend(true);
     setEingabe("");
+    setUnterwegs(text ? { text, modus } : null);
     abbruch.current = new AbortController();
     try {
       await strom(
@@ -150,7 +190,10 @@ export default function Spiel({
       setLaufend(false);
       setTeilText("");
       abbruch.current = null;
+      // Erst neu laden, dann die Vorschau wegnehmen: sonst fehlt der eigene
+      // Satz für einen Wimpernschlag ganz.
       await ladePfad();
+      setUnterwegs(null);
       setSlotStand((n) => n + 1);
     }
   }
@@ -214,6 +257,7 @@ export default function Spiel({
     const text = eingabe.trim();
     setFehler("");
     setEingabe("");
+    setUnterwegs(text ? { text, modus: "handlung" } : null);
     setLaufend(true);
     setVergleich({ ...leererVergleich, aktiv: true, modellA: "", modellB: "" });
     abbruch.current = new AbortController();
@@ -247,6 +291,10 @@ export default function Spiel({
     } finally {
       setLaufend(false);
       abbruch.current = null;
+      // Der Vergleich legt die Eingabe als Knoten an. Ohne Nachladen bliebe
+      // sie im Verlauf unsichtbar, bis eine Fassung gewählt wird.
+      await ladePfad();
+      setUnterwegs(null);
     }
   }
 
@@ -353,15 +401,8 @@ export default function Spiel({
                     <div className="erzaehltext border-y border-rand/60 py-3 text-sm text-text/70">
                       {n.content}
                     </div>
-                  ) : n.kind === "regie" ? (
-                    <div className="flex gap-2 border-l-2 border-akzent/40 pl-3 text-[0.9rem] text-akzent/70 italic">
-                      <span className="not-italic opacity-60">Regie:</span>
-                      {n.content}
-                    </div>
                   ) : n.role === "user" ? (
-                    <div className="border-l-2 border-spieler/60 pl-3 text-[0.95rem] text-spieler">
-                      {n.content}
-                    </div>
+                    <Eigenes text={n.content} modus={alsModus(n.kind)} />
                   ) : (
                     <div className="erzaehltext">{n.content}</div>
                   )}
@@ -430,6 +471,7 @@ export default function Spiel({
                 </article>
               ))}
 
+              {unterwegs && <Eigenes text={unterwegs.text} modus={unterwegs.modus} blass />}
               {teilText && <div className="erzaehltext schreibt">{teilText}</div>}
               {laufend && !teilText && !vergleich.aktiv && (
                 <div className="text-sm text-gedaempft">Der Erzähler denkt nach …</div>
@@ -492,30 +534,26 @@ export default function Spiel({
 
       <footer className="border-t border-rand bg-flaeche/40 px-3 py-3 pb-[env(safe-area-inset-bottom)]">
         <div className="mx-auto max-w-2xl">
-          <div className="mb-2 flex gap-1 text-xs">
-            {(["handlung", "regie"] as const).map((m) => (
+          <div className="mb-2 flex flex-wrap items-center gap-1 text-xs">
+            {MODI.map((m) => (
               <button
-                key={m}
-                onClick={() => setModus(m)}
+                key={m.wert}
+                onClick={() => setModus(m.wert)}
                 className={`rounded px-2 py-1 transition-colors ${
-                  modus === m
-                    ? "bg-flaeche text-text"
+                  modus === m.wert
+                    ? m.wert === "regie"
+                      ? "bg-akzent/15 text-akzent"
+                      : "bg-flaeche text-spieler"
                     : "text-gedaempft hover:text-text"
                 }`}
-                title={
-                  m === "handlung"
-                    ? "Was deine Figur tut oder sagt"
-                    : "Anweisung an den Erzähler — zählt nicht als Handlung deiner Figur"
-                }
+                title={m.hilfe}
               >
-                {m === "handlung" ? "Handlung" : "Regie"}
+                {m.name}
               </button>
             ))}
-            {modus === "regie" && (
-              <span className="self-center pl-2 text-gedaempft">
-                geht als Anweisung raus, nicht als Handlung
-              </span>
-            )}
+            <span className="ml-auto self-center pl-2 text-right text-gedaempft/70 max-sm:w-full max-sm:text-left">
+              {MODI.find((m) => m.wert === modus)?.hilfe}
+            </span>
           </div>
           <div className="flex gap-2">
           <textarea
@@ -524,9 +562,11 @@ export default function Spiel({
             placeholder={
               modus === "regie"
                 ? "Lass die Szene enden, ohne dass etwas geklärt wird."
-                : letzterKnoten?.role === "user"
-                  ? "Weiter erzählen lassen …"
-                  : "Was tust du?"
+                : modus === "dialog"
+                  ? "Ist noch Kaffee da?"
+                  : letzterKnoten?.role === "user"
+                    ? "Weiter erzählen lassen …"
+                    : "Was tust du?"
             }
             value={eingabe}
             disabled={laufend}
@@ -581,4 +621,57 @@ export default function Spiel({
       <Inspektor nodeId={inspektor} schliessen={() => setInspektor(null)} />
     </div>
   );
+}
+
+/** Die Art eines Knotens auf einen Eingabemodus abbilden. */
+function alsModus(kind: string): Modus {
+  return kind === "regie" || kind === "dialog" ? kind : "handlung";
+}
+
+/**
+ * Alles, was der Spieler selbst geschrieben hat. Handlung, Gesagtes und Regie
+ * sehen bewusst deutlich verschieden aus: Ohne Marke war im Verlauf nicht zu
+ * erkennen, was von einem selbst stammt und was der Erzähler geschrieben hat.
+ *
+ * `blass` ist die Fassung, die während des Zuges steht, bevor der Knoten
+ * wirklich gespeichert ist.
+ */
+function Eigenes({ text, modus, blass = false }: { text: string; modus: Modus; blass?: boolean }) {
+  const trueb = blass ? "opacity-60" : "";
+  if (modus === "regie") {
+    return (
+      <div className={`border-l-2 border-akzent/40 pl-3 ${trueb}`}>
+        <div className="text-[0.7rem] tracking-widest text-akzent/60 uppercase">Regie</div>
+        <div className="text-[0.9rem] text-akzent/80 italic">{text}</div>
+      </div>
+    );
+  }
+  if (modus === "dialog") {
+    return (
+      <div className={`border-l-2 border-spieler pl-3 ${trueb}`}>
+        <div className="text-[0.7rem] tracking-widest text-spieler/60 uppercase">Du sagst</div>
+        <div className="text-[1rem] text-spieler">{inAnfuehrung(text)}</div>
+      </div>
+    );
+  }
+  return (
+    <div className={`border-l-2 border-spieler/50 pl-3 ${trueb}`}>
+      <div className="text-[0.7rem] tracking-widest text-spieler/50 uppercase">Du</div>
+      <div className="text-[0.95rem] text-spieler/90">{text}</div>
+    </div>
+  );
+}
+
+/** Setzt deutsche Anführungszeichen, wenn der Satz noch keine hat. */
+function inAnfuehrung(text: string) {
+  const t = text.trim();
+  const paare = [
+    ["\u201e", "\u201c"],
+    ['"', '"'],
+    ["\u00bb", "\u00ab"],
+  ];
+  for (const [auf, zu] of paare) {
+    if (t.startsWith(auf) && t.endsWith(zu) && t.length > auf.length + zu.length - 1) return t;
+  }
+  return `\u201e${t}\u201c`;
 }

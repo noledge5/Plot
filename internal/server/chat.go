@@ -155,7 +155,8 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 		Text   string `json:"text"`
 		Modell string `json:"modell"`
 		// Modus "regie" heißt: Der Text ist eine Anweisung an den Erzähler,
-		// keine Handlung der Spielerfigur.
+		// keine Handlung der Spielerfigur. Modus "dialog" heißt: Der Text ist
+		// wörtliche Rede und geht in Anführungszeichen raus.
 		Modus string `json:"modus"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
@@ -180,8 +181,11 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	art := "turn"
-	if in.Modus == KindRegie {
+	switch in.Modus {
+	case KindRegie:
 		art = KindRegie
+	case KindDialog:
+		art = KindDialog
 	}
 
 	eltern := st.HeadNodeID

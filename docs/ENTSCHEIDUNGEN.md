@@ -28,6 +28,8 @@ nicht mehr als Option geführt.
 | E21 | **Jede Anfrage endet auf einer Nachricht des Spielers** | Google lehnt eine Anfrage ab, die auf einer Assistenz-Nachricht endet — genau das entstand bei „Weiter" und bei Regie. Endet der Verlauf nicht beim Spieler, hängt die Engine einen Anstoß in Klammern an |
 | E22 | **Die Erzählzeit geht als Direktive mit, nicht nur als Satz im Prompt** | Ein Modell setzt fort, was im Verlauf steht. Zehn Absätze Präteritum gewinnen gegen eine Zeile weit oben — die Direktive steht am Ende, wo sie wirkt. Vorgabe Präsens, abschaltbar |
 | E23 | **Figurenbibliothek: Grundbeschreibung geschichtsübergreifend, Beziehungsstand nicht** | Das Blatt wird beim Übernehmen kopiert, nicht verknüpft. Was eine Figur in einer Geschichte erlebt, darf nicht in eine andere durchschlagen; ihr Kern soll überall derselbe sein |
+| E24 | **Regie ist das Eingriffswerkzeug und schlägt alles andere** | Sie steht als letzter Block im Prompt, mit ausdrücklichem Vorrang vor Regeln, Figurenblättern und Verlauf — samt Erlaubnis, einer schon erzählten Stelle zu widersprechen. Ohne diesen Rahmen wägt ein Modell sie gegen die Regeln ab und setzt sie oft nicht um |
+| E25 | **Regie wirkt in drei Reichweiten: nächster Zug, letzter Zug, dauerhaft** | „Ab jetzt" wie bisher. „Letztes neu" nimmt die falsche Erzählung vom Pfad und erzählt sie neu — sonst baut das Modell weiter auf dem Fehler auf. „Dauerhaft" geht bei jedem Zug mit, für Figuren, die sich wiederholt falsch verhalten. Verworfene Fassungen werden nie gelöscht, nur vom Pfad genommen |
 
 ## Was du wörtlich gesagt hast, und was ich daraus gemacht habe
 

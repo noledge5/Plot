@@ -109,7 +109,7 @@ var platzhalterListe = []struct {
 	{"stilbeispiel", "deine Tonprobe"},
 	{"welt", "Hintergrund"},
 	{"szene", "Ort, Zeit, Lage"},
-	{"directives", "Regieanweisung der Engine und offene Regie aus dem Spiel"},
+	{"directives", "Erzählzeit, deine Regie und deine dauerhaften Anweisungen"},
 	{"autornotiz", "deine Anweisung für den nächsten Zug"},
 }
 

@@ -42,6 +42,39 @@ func alsRede(text string) string {
 	return "„" + t + "“"
 }
 
+// regieVorspann rahmt die Anweisungen des Autors. Ohne ihn liest ein Modell
+// sie als einen Wunsch unter vielen und wägt sie gegen die Regeln und die
+// Figurenblätter ab - und setzt sie deshalb oft nicht um.
+//
+// Der Satz über den Widerspruch ist der wichtigste: Eine Korrektur kommt
+// immer dann, wenn schon etwas Falsches dasteht. Ohne ausdrückliche Erlaubnis
+// versucht ein Modell, beides unter einen Hut zu bringen, statt die Stelle
+// wirklich neu zu erzählen.
+const regieVorspann = `Anweisung des Autors. Sie geht allem anderen vor: den Regeln oben, den ` +
+	`Figurenblättern und dem bisherigen Verlauf. Wenn sie dem widerspricht, was schon erzählt ` +
+	`wurde, gilt trotzdem sie - erzähle die Stelle dann so, als wäre es von Anfang an so ` +
+	`gewesen. Setze sie um, ohne sie zu erwähnen oder zu kommentieren:`
+
+// rendereRegie macht aus den Anweisungen des Autors einen Block, der im
+// Prompt als solcher erkennbar ist.
+func rendereRegie(anweisungen []string) string {
+	var sauber []string
+	for _, a := range anweisungen {
+		if t := strings.TrimSpace(a); t != "" {
+			sauber = append(sauber, t)
+		}
+	}
+	if len(sauber) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString(regieVorspann + "\n")
+	for _, a := range sauber {
+		b.WriteString("- " + a + "\n")
+	}
+	return strings.TrimSpace(b.String())
+}
+
 // offeneRegie sammelt die Regieanweisungen, die seit der letzten Antwort
 // dazugekommen sind. Sie gelten für den nächsten Zug und danach nicht mehr -
 // sonst häufen sich Anweisungen an, die längst erledigt sind.
@@ -75,6 +108,10 @@ type StorySettings struct {
 	AutorNotiz string `json:"autorNotiz"`
 	// DruckSchwelle: ab diesem Druckwert verfolgt eine Figur ihr Ziel aktiv.
 	DruckSchwelle int `json:"druckSchwelle"`
+	// StehendeRegie sind Anweisungen, die bei jedem Zug mitgehen, bis der
+	// Autor sie wegnimmt. Eine einzelne Regie gilt nur für den nächsten Zug;
+	// wenn sich eine Figur dauerhaft falsch verhält, reicht das nicht.
+	StehendeRegie []string `json:"stehendeRegie"`
 	// Erzaehlzeit hält die Zeitform fest: "praesens", "praeteritum" oder
 	// "aus". Sie geht als Direktive mit, nicht nur als Satz im System-Prompt.
 	//

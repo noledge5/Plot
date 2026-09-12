@@ -89,12 +89,22 @@ func (s *Server) erzaehlung(ctx context.Context, st *db.Story, elternID *int64, 
 	if err != nil {
 		return nil, nil, fmt.Errorf("Figuren lesen: %w", err)
 	}
-	// Regieanweisungen aus dem Verlauf kommen zu den Direktiven der Engine
-	// dazu und landen gemeinsam in {{directives}}. Die Zeitform steht vorn:
-	// Sie gilt für jeden Zug, alles andere nur für diesen.
-	direktiven = append(offeneRegie(pfad), direktiven...)
+	// {{directives}} in zwei Lagen: erst die Direktiven der Engine, dann die
+	// Anweisungen des Autors. Die Reihenfolge ist keine Kosmetik - was zuletzt
+	// im Prompt steht, wiegt bei kleinen Modellen am schwersten, und die
+	// Anweisung des Autors soll alles andere schlagen.
+	var engine []string
 	if satz := zeitDirektive[storySet.Erzaehlzeit]; satz != "" {
-		direktiven = append([]string{satz}, direktiven...)
+		engine = append(engine, satz)
+	}
+	engine = append(engine, direktiven...)
+
+	// Stehende Anweisungen gelten dauerhaft, die aus dem Verlauf nur für
+	// diesen Zug. Die frischere steht hinten.
+	autor := append(append([]string{}, storySet.StehendeRegie...), offeneRegie(pfad)...)
+	direktiven = engine
+	if block := rendereRegie(autor); block != "" {
+		direktiven = append(direktiven, block)
 	}
 
 	// Chronik und Faktenblatt: was aus dem wörtlichen Verlauf gefallen ist,
@@ -337,6 +347,102 @@ func (s *Server) handleRegenerate(w http.ResponseWriter, r *http.Request) {
 	kosten, aufrufe, _ := s.db.Costs(st.ID)
 	strom.sende("fertig", map[string]any{
 		"nodeId": knoten.ID, "ersetzt": alt.ID, "modell": res.Model, "anbieter": res.Provider,
+		"usage": res.Usage, "kostenGesamt": kosten, "aufrufe": aufrufe,
+	})
+	s.pruefungNachreichen(strom, st, knoten, set)
+	s.gedaechtnisNachreichen(strom, st, knoten, set)
+	s.beziehungNachreichen(strom, st, knoten, set)
+}
+
+// handleKorrektur ist der rückwirkende Eingriff: Die letzte Erzählung wird
+// verworfen und mit einer Anweisung des Autors neu erzählt.
+//
+// Eine gewöhnliche Regieanweisung gilt erst für den nächsten Zug - die falsche
+// Stelle bleibt dabei im Verlauf stehen, und das Modell baut weiter darauf
+// auf. Wenn sich eine Figur falsch verhalten hat, ist das genau das Falsche:
+// Es braucht einen Weg, die Stelle wirklich zurückzunehmen.
+//
+// Im Baum entsteht dabei:
+//
+//	eingabe
+//	 ├── antwort (falsch)        bleibt erhalten, liegt aber nicht mehr im Weg
+//	 └── regie "..."
+//	      └── antwort (neu)
+//
+// Die Anweisung steht also im Verlauf, und die verworfene Fassung ist nicht
+// gelöscht - sie liegt nur nicht mehr auf dem Pfad.
+func (s *Server) handleKorrektur(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(r, "id")
+	if !ok {
+		writeError(w, http.StatusBadRequest, "ungültige Kennung")
+		return
+	}
+	var in struct {
+		Text   string `json:"text"`
+		NodeID int64  `json:"nodeId"` // gesetzt: diese Stelle statt der letzten
+		Modell string `json:"modell"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		writeError(w, http.StatusBadRequest, "Anfrage nicht lesbar")
+		return
+	}
+	if strings.TrimSpace(in.Text) == "" {
+		writeError(w, http.StatusBadRequest, "eine Korrektur braucht eine Anweisung")
+		return
+	}
+	st, err := s.db.Story(id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "Geschichte nicht gefunden")
+		return
+	}
+	if _, err := s.client(); err != nil {
+		writeError(w, http.StatusPreconditionRequired, err.Error())
+		return
+	}
+
+	ziel := in.NodeID
+	if ziel == 0 && st.HeadNodeID != nil {
+		ziel = *st.HeadNodeID
+	}
+	falsch, err := s.db.Node(ziel)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "es gibt noch nichts zu korrigieren")
+		return
+	}
+	// Steht der Kopf auf einer Eingabe (etwa nach einem Abbruch), gibt es
+	// keine Erzählung, die sich zurücknehmen ließe.
+	if falsch.Role != "assistant" {
+		writeError(w, http.StatusBadRequest,
+			"rückwirkend korrigieren geht nur bei einer Erzählung des Spielleiters")
+		return
+	}
+
+	set := s.settings()
+	modell := set.NarratorModel
+	if strings.TrimSpace(in.Modell) != "" {
+		modell = in.Modell
+	}
+
+	// Die Anweisung tritt an die Stelle der verworfenen Fassung: gleicher
+	// Elternknoten, die neue Erzählung hängt darunter.
+	anweisung, err := s.db.AddNode(id, falsch.ParentID, KindRegie, "user", strings.TrimSpace(in.Text), "", "")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Anweisung konnte nicht gespeichert werden")
+		return
+	}
+
+	strom := neuesSSE(w)
+	strom.sende("eingabe", map[string]any{"nodeId": anweisung.ID, "verworfen": falsch.ID})
+
+	knoten, res, err := s.erzaehlung(r.Context(), st, &anweisung.ID, modell, set, nil,
+		func(t string) { strom.sende("delta", map[string]any{"text": t}) })
+	if err != nil {
+		strom.sende("fehler", map[string]any{"fehler": err.Error()})
+		return
+	}
+	kosten, aufrufe, _ := s.db.Costs(st.ID)
+	strom.sende("fertig", map[string]any{
+		"nodeId": knoten.ID, "verworfen": falsch.ID, "modell": res.Model, "anbieter": res.Provider,
 		"usage": res.Usage, "kostenGesamt": kosten, "aufrufe": aufrufe,
 	})
 	s.pruefungNachreichen(strom, st, knoten, set)

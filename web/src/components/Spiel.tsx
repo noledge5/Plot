@@ -98,6 +98,9 @@ export default function Spiel({
   // fertig ist. Bei einem kleinen Modell sind das zwanzig Sekunden, in denen
   // man glaubt, die Eingabe sei verloren gegangen.
   const [unterwegs, setUnterwegs] = useState<{ text: string; modus: Modus } | null>(null);
+  // Anweisungen, die bei jedem Zug mitgehen, bis man sie wegnimmt.
+  const [regeln, setRegeln] = useState<string[]>([]);
+  const [regelnOffen, setRegelnOffen] = useState(false);
   // Befunde des Detektors je Knoten. Sie kommen beim Laden aus dem Verlauf und
   // während eines Zuges als eigenes Ereignis nach.
   const [befunde, setBefunde] = useState<Record<number, Flags>>({});
@@ -126,8 +129,17 @@ export default function Spiel({
     }
   }
 
+  async function ladeRegeln() {
+    try {
+      setRegeln((await hole<string[] | null>(`/api/stories/${storyId}/regie-regeln`)) ?? []);
+    } catch {
+      setRegeln([]);
+    }
+  }
+
   useEffect(() => {
     ladePfad();
+    ladeRegeln();
     setEinstiegZu(false);
     hole<typeof einstieg>(`/api/stories/${storyId}/wiedereinstieg`)
       .then((d) => setEinstieg(d && d.zuege > 2 ? d : null))
@@ -298,6 +310,69 @@ export default function Spiel({
     }
   }
 
+  /**
+   * Nimmt die letzte Erzählung zurück und lässt sie mit dieser Anweisung neu
+   * erzählen. Eine gewöhnliche Regie gilt erst für den nächsten Zug — die
+   * falsche Stelle bliebe stehen, und das Modell baute weiter darauf auf.
+   */
+  async function korrigieren() {
+    const text = eingabe.trim();
+    if (!text) return;
+    setFehler("");
+    setTeilText("");
+    setLaufend(true);
+    setEingabe("");
+    setUnterwegs({ text, modus: "regie" });
+    abbruch.current = new AbortController();
+    try {
+      await strom(
+        `/api/stories/${storyId}/korrektur`,
+        { text },
+        (ereignis, daten) => {
+          if (ereignis === "delta") setTeilText((t) => t + daten.text);
+          else if (ereignis === "fehler") setFehler(daten.fehler);
+          else if (ereignis === "fertig")
+            setLetzterZug({ modell: daten.modell, anbieter: daten.anbieter, usage: daten.usage });
+          else if (ereignis === "befunde") setBefunde((b) => ({ ...b, [daten.nodeId]: daten.flags }));
+        },
+        abbruch.current.signal,
+      );
+    } catch (e) {
+      if (!(e instanceof DOMException && e.name === "AbortError")) {
+        setFehler(e instanceof Error ? e.message : String(e));
+      }
+    } finally {
+      setLaufend(false);
+      setTeilText("");
+      abbruch.current = null;
+      await ladePfad();
+      setUnterwegs(null);
+      setSlotStand((n) => n + 1);
+    }
+  }
+
+  /** Legt die Anweisung als stehende Regel ab — sie geht dann bei jedem Zug mit. */
+  async function regelAnlegen() {
+    const text = eingabe.trim();
+    if (!text) return;
+    setFehler("");
+    try {
+      setRegeln(await schicke<string[]>(`/api/stories/${storyId}/regie-regeln`, { text }));
+      setEingabe("");
+      setRegelnOffen(true);
+    } catch (e) {
+      setFehler(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function regelLoeschen(nr: number) {
+    try {
+      setRegeln(await schicke<string[]>(`/api/stories/${storyId}/regie-regeln/${nr}`, undefined, "DELETE"));
+    } catch (e) {
+      setFehler(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   async function zeitsprung() {
     const spanne = window.prompt("Wie viel Zeit vergeht?", "drei Tage");
     if (!spanne) return;
@@ -326,29 +401,36 @@ export default function Spiel({
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-2 border-b border-rand px-3 py-2">
-        <Knopf onClick={zurueck} titel="Zur Übersicht">
-          ←
-        </Knopf>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm">{story?.title ?? "…"}</div>
-          <div className="text-xs text-gedaempft">
-            {geld(kosten)} bisher
-            {letzterZug && ` · zuletzt ${letzterZug.modell.split("/").pop()} über ${letzterZug.anbieter}`}
+      {/* Auf dem Handy passen Titel und vier Knöpfe nicht in eine Zeile — bei
+          390px lief die Kopfzeile aus dem Bild und "Stände" war abgeschnitten.
+          Deshalb zwei Zeilen unter sm, eine darüber. */}
+      <header className="border-b border-rand px-3 py-2">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-2 gap-y-1">
+          <Knopf onClick={zurueck} titel="Zur Übersicht">
+            ←
+          </Knopf>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm">{story?.title ?? "…"}</div>
+            <div className="truncate text-xs text-gedaempft">
+              {geld(kosten)} bisher
+              {letzterZug && ` · zuletzt ${letzterZug.modell.split("/").pop()} über ${letzterZug.anbieter}`}
+            </div>
+          </div>
+          <div className="flex shrink-0 gap-1 max-sm:w-full max-sm:justify-between">
+            <Knopf klasse="max-sm:flex-1 max-sm:px-2 max-sm:text-xs" onClick={() => setFigurenOffen(true)} titel="Figuren, Grenzen, Antriebe">
+              Figuren
+            </Knopf>
+            <Knopf klasse="max-sm:flex-1 max-sm:px-2 max-sm:text-xs" onClick={() => setGedaechtnisOffen(true)} titel="Chronik und Fakten">
+              Gedächtnis
+            </Knopf>
+            <Knopf klasse="max-sm:flex-1 max-sm:px-2 max-sm:text-xs" onClick={() => story && promptBearbeiten(story)} titel="System-Prompt">
+              Prompt
+            </Knopf>
+            <Knopf klasse="max-sm:flex-1 max-sm:px-2 max-sm:text-xs" onClick={() => setSeitenleiste((s) => !s)} titel="Speicherstände">
+              Stände
+            </Knopf>
           </div>
         </div>
-        <Knopf onClick={() => setFigurenOffen(true)} titel="Figuren, Grenzen, Antriebe">
-          Figuren
-        </Knopf>
-        <Knopf onClick={() => setGedaechtnisOffen(true)} titel="Chronik und Fakten">
-          Gedächtnis
-        </Knopf>
-        <Knopf onClick={() => story && promptBearbeiten(story)} titel="System-Prompt">
-          Prompt
-        </Knopf>
-        <Knopf onClick={() => setSeitenleiste((s) => !s)} titel="Speicherstände">
-          Stände
-        </Knopf>
       </header>
 
       <div className="flex min-h-0 flex-1">
@@ -532,9 +614,9 @@ export default function Spiel({
         )}
       </div>
 
-      <footer className="border-t border-rand bg-flaeche/40 px-3 py-3 pb-[env(safe-area-inset-bottom)]">
-        <div className="mx-auto max-w-2xl">
-          <div className="mb-2 flex flex-wrap items-center gap-1 text-xs">
+      <footer className="border-t border-rand bg-flaeche/40 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        <div className="mx-auto max-w-2xl space-y-2">
+          <div className="flex flex-wrap items-center gap-1 text-xs">
             {MODI.map((m) => (
               <button
                 key={m.wert}
@@ -551,17 +633,40 @@ export default function Spiel({
                 {m.name}
               </button>
             ))}
-            <span className="ml-auto self-center pl-2 text-right text-gedaempft/70 max-sm:w-full max-sm:text-left">
-              {MODI.find((m) => m.wert === modus)?.hilfe}
-            </span>
+            {regeln.length > 0 && (
+              <button
+                className="ml-auto rounded px-2 py-1 text-akzent/70 hover:text-akzent"
+                onClick={() => setRegelnOffen((o) => !o)}
+                title="Anweisungen, die bei jedem Zug mitgehen"
+              >
+                {regeln.length} dauerhaft
+              </button>
+            )}
           </div>
-          <div className="flex gap-2">
+
+          {regelnOffen && regeln.length > 0 && (
+            <ul className="space-y-1 rounded-lg border border-akzent/25 bg-akzent/5 p-2">
+              {regeln.map((r, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-akzent/80">
+                  <span className="min-w-0 flex-1">{r}</span>
+                  <button
+                    className="shrink-0 text-gedaempft hover:text-red-300"
+                    title="Anweisung aufheben"
+                    onClick={() => regelLoeschen(i)}
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
           <textarea
-            className={`${eingabeKlasse} max-h-40 min-h-[2.75rem] resize-y`}
+            className={`${eingabeKlasse} max-h-40 min-h-[3.25rem] w-full resize-y`}
             rows={2}
             placeholder={
               modus === "regie"
-                ? "Lass die Szene enden, ohne dass etwas geklärt wird."
+                ? "Mira ist deine Freundin, sie würde dich nicht so abweisen."
                 : modus === "dialog"
                   ? "Ist noch Kaffee da?"
                   : letzterKnoten?.role === "user"
@@ -575,35 +680,76 @@ export default function Spiel({
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) senden();
             }}
           />
-          <div className="flex flex-col gap-2">
-            {laufend ? (
-              <Knopf art="gefahr" onClick={() => abbruch.current?.abort()}>
-                Stopp
+
+          {/* Regie hat drei Wirkungen. Sie stehen nebeneinander, weil der
+              Unterschied — nächster Zug, letzter Zug, dauerhaft — die ganze
+              Bedienung ausmacht und sich hinter einem Menü nicht erklärt. */}
+          {modus === "regie" ? (
+            <div className="flex flex-wrap gap-2">
+              {laufend ? (
+                <Knopf art="gefahr" klasse="flex-1" onClick={() => abbruch.current?.abort()}>
+                  Stopp
+                </Knopf>
+              ) : (
+                <>
+                  <Knopf
+                    art="haupt"
+                    klasse="flex-1"
+                    onClick={senden}
+                    disabled={!eingabe.trim()}
+                    titel="Gilt für den nächsten Zug"
+                  >
+                    Ab jetzt
+                  </Knopf>
+                  <Knopf
+                    klasse="flex-1"
+                    onClick={korrigieren}
+                    disabled={!eingabe.trim() || letzterKnoten?.role !== "assistant"}
+                    titel="Verwirft die letzte Erzählung und erzählt sie mit dieser Anweisung neu"
+                  >
+                    Letztes neu
+                  </Knopf>
+                  <Knopf
+                    klasse="flex-1"
+                    onClick={regelAnlegen}
+                    disabled={!eingabe.trim()}
+                    titel="Geht bei jedem Zug mit, bis du sie aufhebst"
+                  >
+                    Dauerhaft
+                  </Knopf>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {laufend ? (
+                <Knopf art="gefahr" klasse="flex-1" onClick={() => abbruch.current?.abort()}>
+                  Stopp
+                </Knopf>
+              ) : (
+                <Knopf art="haupt" klasse="flex-1" onClick={senden} disabled={!eingabe.trim()}>
+                  Senden
+                </Knopf>
+              )}
+              <Knopf
+                onClick={senden}
+                disabled={laufend || knoten.length === 0 || eingabe.trim() !== ""}
+                titel="Weitererzählen lassen, ohne selbst etwas beizutragen"
+              >
+                Weiter
               </Knopf>
-            ) : (
-              <Knopf art="haupt" onClick={senden}>
-                Senden
+              <Knopf onClick={zeitsprung} disabled={laufend || knoten.length === 0} titel="Zeit vergehen lassen">
+                Zeit
               </Knopf>
-            )}
-            <Knopf
-              onClick={senden}
-              disabled={laufend || knoten.length === 0 || eingabe.trim() !== ""}
-              titel="Weitererzählen lassen, ohne selbst etwas beizutragen"
-            >
-              Weiter
-            </Knopf>
-            <Knopf onClick={zeitsprung} disabled={laufend || knoten.length === 0} titel="Zeit vergehen lassen">
-              Zeit
-            </Knopf>
-            <Knopf
-              onClick={vergleichStarten}
-              disabled={laufend}
-              titel="Zwei Modelle nebeneinander auf denselben Prompt"
-            >
-              A/B
-            </Knopf>
-          </div>
-          </div>
+              <Knopf
+                onClick={vergleichStarten}
+                disabled={laufend}
+                titel="Zwei Modelle nebeneinander auf denselben Prompt"
+              >
+                A/B
+              </Knopf>
+            </div>
+          )}
         </div>
       </footer>
 

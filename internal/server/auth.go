@@ -174,6 +174,7 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 			"figuren", "prompt-platzhalter", "stilbeispiel", "detektor",
 			"chronik", "fakten", "beziehungen", "zeitsprung", "wiedereinstieg",
 			"regie", "dialog", "praesens", "figurenbibliothek",
+			"korrektur", "stehende-regie",
 		},
 	})
 }

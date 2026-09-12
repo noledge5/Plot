@@ -88,6 +88,9 @@ func (s *Server) erzaehlung(ctx context.Context, st *db.Story, elternID *int64, 
 	if err != nil {
 		return nil, nil, fmt.Errorf("Figuren lesen: %w", err)
 	}
+	// Regieanweisungen aus dem Verlauf kommen zu den Direktiven der Engine
+	// dazu und landen gemeinsam in {{directives}}.
+	direktiven = append(offeneRegie(pfad), direktiven...)
 	system, bloecke := baueSystemPrompt(st.SystemPrompt, promptWerte(st, storySet, persona, npcs, direktiven))
 	msgs, abgeschnitten := baueNachrichten(system, pfad, set.MaxHistoryTurns)
 
@@ -140,6 +143,9 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Text   string `json:"text"`
 		Modell string `json:"modell"`
+		// Modus "regie" heißt: Der Text ist eine Anweisung an den Erzähler,
+		// keine Handlung der Spielerfigur.
+		Modus string `json:"modus"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 		writeError(w, http.StatusBadRequest, "Anfrage nicht lesbar")
@@ -162,9 +168,14 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 		modell = in.Modell
 	}
 
+	art := "turn"
+	if in.Modus == KindRegie {
+		art = KindRegie
+	}
+
 	eltern := st.HeadNodeID
 	if strings.TrimSpace(in.Text) != "" {
-		eingabe, err := s.db.AddNode(id, eltern, "turn", "user", strings.TrimSpace(in.Text), "", "")
+		eingabe, err := s.db.AddNode(id, eltern, art, "user", strings.TrimSpace(in.Text), "", "")
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "Eingabe konnte nicht gespeichert werden")
 			return

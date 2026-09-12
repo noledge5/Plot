@@ -53,6 +53,9 @@ export default function Spiel({
   const [letzterZug, setLetzterZug] = useState<{ modell: string; anbieter: string; usage: Verbrauch } | null>(null);
   const [reserveModell, setReserveModell] = useState("");
   const [figurenOffen, setFigurenOffen] = useState(false);
+  // "regie" schickt den Text als Anweisung an den Erzähler statt als Handlung
+  // der Spielerfigur.
+  const [modus, setModus] = useState<"handlung" | "regie">("handlung");
   // Befunde des Detektors je Knoten. Sie kommen beim Laden aus dem Verlauf und
   // während eines Zuges als eigenes Ereignis nach.
   const [befunde, setBefunde] = useState<Record<number, Flags>>({});
@@ -110,7 +113,7 @@ export default function Spiel({
     try {
       await strom(
         `/api/stories/${storyId}/turn`,
-        { text },
+        { text, modus },
         (ereignis, daten) => {
           if (ereignis === "delta") setTeilText((t) => t + daten.text);
           else if (ereignis === "fehler") setFehler(daten.fehler);
@@ -280,7 +283,12 @@ export default function Spiel({
             <div className="space-y-6">
               {knoten.map((n) => (
                 <article key={n.id} className="group">
-                  {n.role === "user" ? (
+                  {n.kind === "regie" ? (
+                    <div className="flex gap-2 border-l-2 border-akzent/40 pl-3 text-[0.9rem] text-akzent/70 italic">
+                      <span className="not-italic opacity-60">Regie:</span>
+                      {n.content}
+                    </div>
+                  ) : n.role === "user" ? (
                     <div className="border-l-2 border-spieler/60 pl-3 text-[0.95rem] text-spieler">
                       {n.content}
                     </div>
@@ -413,12 +421,42 @@ export default function Spiel({
       </div>
 
       <footer className="border-t border-rand bg-flaeche/40 px-3 py-3 pb-[env(safe-area-inset-bottom)]">
-        <div className="mx-auto flex max-w-2xl gap-2">
+        <div className="mx-auto max-w-2xl">
+          <div className="mb-2 flex gap-1 text-xs">
+            {(["handlung", "regie"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setModus(m)}
+                className={`rounded px-2 py-1 transition-colors ${
+                  modus === m
+                    ? "bg-flaeche text-text"
+                    : "text-gedaempft hover:text-text"
+                }`}
+                title={
+                  m === "handlung"
+                    ? "Was deine Figur tut oder sagt"
+                    : "Anweisung an den Erzähler — zählt nicht als Handlung deiner Figur"
+                }
+              >
+                {m === "handlung" ? "Handlung" : "Regie"}
+              </button>
+            ))}
+            {modus === "regie" && (
+              <span className="self-center pl-2 text-gedaempft">
+                geht als Anweisung raus, nicht als Handlung
+              </span>
+            )}
+          </div>
+          <div className="flex gap-2">
           <textarea
             className={`${eingabeKlasse} max-h-40 min-h-[2.75rem] resize-y`}
             rows={2}
             placeholder={
-              letzterKnoten?.role === "user" ? "Weiter erzählen lassen …" : "Was tust du?"
+              modus === "regie"
+                ? "Lass die Szene enden, ohne dass etwas geklärt wird."
+                : letzterKnoten?.role === "user"
+                  ? "Weiter erzählen lassen …"
+                  : "Was tust du?"
             }
             value={eingabe}
             disabled={laufend}
@@ -444,6 +482,7 @@ export default function Spiel({
             >
               A/B
             </Knopf>
+          </div>
           </div>
         </div>
       </footer>

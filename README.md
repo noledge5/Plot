@@ -60,6 +60,10 @@ die Oberfläche nie.
 - **Gefälligkeits-Detektor:** prüft jede Antwort gegen sieben Muster und hängt
   Befunde mit Zitat an den Zug, samt „nochmal, härter". Markiert wird, nicht
   verworfen.
+- **Regie statt Handlung:** Der Umschalter am Eingabefeld entscheidet, ob dein
+  Text eine Handlung deiner Figur ist oder eine Anweisung an den Erzähler.
+  Regieanweisungen gehen als Direktive in den Prompt, erscheinen im Verlauf
+  abgesetzt und gelten nur für den nächsten Zug.
 
 ## Dokumentation
 

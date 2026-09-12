@@ -123,3 +123,45 @@ func TestVerlaufWirdBegrenzt(t *testing.T) {
 		t.Fatal("System-Prompt steht nicht vorn")
 	}
 }
+
+// Eine Regieanweisung ist keine Handlung der Figur: Sie darf nicht in der
+// Nachrichtenfolge landen, sonst liest das Modell sie als etwas, das der
+// Spieler gesagt hat.
+func TestRegieBleibtAusDerNachrichtenfolge(t *testing.T) {
+	pfad := []db.Node{
+		{Kind: "turn", Role: "user", Content: "Ich klopfe an."},
+		{Kind: "turn", Role: "assistant", Content: "Niemand öffnet."},
+		{Kind: KindRegie, Role: "user", Content: "Lass die Szene enden, ohne dass etwas geklärt wird."},
+	}
+	msgs, _ := baueNachrichten("System", pfad, 20)
+	for _, m := range msgs {
+		if strings.Contains(m.Content, "Lass die Szene enden") {
+			t.Fatalf("Regieanweisung steht in der Nachrichtenfolge: %+v", m)
+		}
+	}
+	if len(msgs) != 3 { // System + zwei Züge
+		t.Fatalf("Nachrichten = %d, erwartet 3", len(msgs))
+	}
+}
+
+// Sie gilt für den nächsten Zug und danach nicht mehr - sonst sammeln sich
+// Anweisungen an, die längst erledigt sind.
+func TestRegieGiltNurBisZurNaechstenAntwort(t *testing.T) {
+	pfad := []db.Node{
+		{Kind: KindRegie, Role: "user", Content: "alte Anweisung"},
+		{Kind: "turn", Role: "assistant", Content: "Text."},
+		{Kind: KindRegie, Role: "user", Content: "neue Anweisung"},
+		{Kind: KindRegie, Role: "user", Content: "und noch eine"},
+	}
+	offen := offeneRegie(pfad)
+	if len(offen) != 2 {
+		t.Fatalf("offene Anweisungen = %d, erwartet 2: %v", len(offen), offen)
+	}
+	if offen[0] != "neue Anweisung" || offen[1] != "und noch eine" {
+		t.Fatalf("Reihenfolge oder Inhalt falsch: %v", offen)
+	}
+	// Nach einer Antwort ist nichts mehr offen.
+	if len(offeneRegie(pfad[:2])) != 0 {
+		t.Fatal("erledigte Anweisung gilt weiter")
+	}
+}

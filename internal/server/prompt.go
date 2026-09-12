@@ -11,6 +11,27 @@ import (
 	"github.com/noledge5/plot/internal/openrouter"
 )
 
+// KindRegie kennzeichnet Knoten, die eine Anweisung an den Erzähler sind und
+// keine Handlung der Spielerfigur.
+const KindRegie = "regie"
+
+// offeneRegie sammelt die Regieanweisungen, die seit der letzten Antwort
+// dazugekommen sind. Sie gelten für den nächsten Zug und danach nicht mehr -
+// sonst häufen sich Anweisungen an, die längst erledigt sind.
+func offeneRegie(pfad []db.Node) []string {
+	var offen []string
+	for i := len(pfad) - 1; i >= 0; i-- {
+		n := pfad[i]
+		if n.Role == "assistant" {
+			break
+		}
+		if n.Kind == KindRegie && strings.TrimSpace(n.Content) != "" {
+			offen = append([]string{strings.TrimSpace(n.Content)}, offen...)
+		}
+	}
+	return offen
+}
+
 // StorySettings sind die Einstellungen einer einzelnen Geschichte. Sie liegen
 // als JSON in story.settings_json, damit neue Felder keine Migration brauchen.
 type StorySettings struct {
@@ -278,6 +299,12 @@ func baueNachrichten(system string, pfad []db.Node, maxTurns int) (msgs []openro
 		abgeschnitten = von
 	}
 	for _, n := range pfad[von:] {
+		// Regieanweisungen sind keine Handlung der Spielerfigur. Sie stehen
+		// im Verlauf, gehören aber nicht in die Nachrichtenfolge - dort
+		// würden sie als etwas gelesen, das die Figur gesagt hat.
+		if n.Kind == KindRegie {
+			continue
+		}
 		rolle := n.Role
 		if rolle != "user" && rolle != "assistant" {
 			rolle = "user"
